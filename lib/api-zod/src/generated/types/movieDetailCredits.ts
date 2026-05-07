@@ -5,7 +5,8 @@
  * StreamVault API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CastMember } from "./castMember";
 
-export interface HealthStatus {
-  status: string;
-}
+export type MovieDetailCredits = {
+  cast?: CastMember[];
+};

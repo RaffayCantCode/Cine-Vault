@@ -5,7 +5,8 @@
  * StreamVault API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { Genre } from "./genre";
 
-export interface HealthStatus {
-  status: string;
+export interface GenreList {
+  genres: Genre[];
 }
