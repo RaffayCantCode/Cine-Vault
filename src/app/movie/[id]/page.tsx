@@ -9,6 +9,7 @@ import { MediaRow } from "@/components/MediaRow";
 import { Play, Star, Clock, Calendar, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
+import { fetchJson } from "@/lib/utils";
 
 interface Movie {
   id: number;
@@ -31,15 +32,17 @@ export default function MovieDetailPage() {
   const { status } = useSession();
   const [movie, setMovie] = useState<Movie | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchMovie = async () => {
+      setError(null);
       try {
-        const res = await fetch(`/api/tmdb/movie/${id}`);
-        const data = await res.json();
+        const data = await fetchJson<Movie>(`/api/tmdb/movie/${id}`);
         setMovie(data);
       } catch (error) {
-        console.error("Failed to fetch movie:", error);
+        setMovie(null);
+        setError(error instanceof Error ? error.message : "Failed to fetch movie");
       } finally {
         setIsLoading(false);
       }
@@ -86,7 +89,28 @@ export default function MovieDetailPage() {
     );
   }
 
-  if (!movie) return null;
+  if (!movie) {
+    return (
+      <div className="min-h-screen bg-background text-foreground pb-24">
+        <Navigation />
+        <div className="pt-32 px-6 md:px-12 max-w-screen-2xl mx-auto">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-white/80">
+            <div className="text-lg font-bold text-white mb-1">Couldn&apos;t load this movie</div>
+            {error ? (
+              <div className="text-sm text-white/50 break-words">{error}</div>
+            ) : (
+              <div className="text-sm text-white/50">Not found.</div>
+            )}
+            <div className="mt-5">
+              <Link href="/" className="text-sm font-semibold text-primary hover:underline">
+                Go back home
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const backdropUrl = movie.backdrop_path
     ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}`

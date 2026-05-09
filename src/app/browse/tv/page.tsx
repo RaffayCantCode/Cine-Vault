@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { MediaCard } from "@/components/MediaCard";
-import { cn } from "@/lib/utils";
+import { cn, fetchJson } from "@/lib/utils";
 
 interface Genre {
   id: number;
@@ -26,15 +26,17 @@ export default function BrowseTvPage() {
   const [genres, setGenres] = useState<Genre[]>([]);
   const [shows, setShows] = useState<TvShow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchGenres = async () => {
+      setError(null);
       try {
-        const res = await fetch("/api/tmdb/genres/tv");
-        const data = await res.json();
+        const data = await fetchJson<{ genres: Genre[] }>("/api/tmdb/genres/tv");
         setGenres(data.genres || []);
       } catch (error) {
-        console.error("Failed to fetch genres:", error);
+        setGenres([]);
+        setError(error instanceof Error ? error.message : "Failed to fetch genres");
       }
     };
 
@@ -44,16 +46,17 @@ export default function BrowseTvPage() {
   useEffect(() => {
     const fetchShows = async () => {
       setIsLoading(true);
+      setError(null);
       try {
         const params = new URLSearchParams();
         if (selectedGenre) params.append("genreId", selectedGenre.toString());
         params.append("sortBy", "popularity.desc");
 
-        const res = await fetch(`/api/tmdb/discover/tv?${params}`);
-        const data = await res.json();
+        const data = await fetchJson<{ results: TvShow[] }>(`/api/tmdb/discover/tv?${params}`);
         setShows(data.results || []);
       } catch (error) {
-        console.error("Failed to fetch TV shows:", error);
+        setShows([]);
+        setError(error instanceof Error ? error.message : "Failed to fetch TV shows");
       } finally {
         setIsLoading(false);
       }
@@ -68,6 +71,13 @@ export default function BrowseTvPage() {
 
       <div className="pt-32 px-6 md:px-12 max-w-screen-2xl mx-auto">
         <h1 className="text-4xl font-bold text-white mb-8">TV Shows</h1>
+
+        {error && (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-white/80 mb-10">
+            <div className="text-sm font-semibold text-white mb-1">Couldn&apos;t load TV shows</div>
+            <div className="text-xs text-white/50 break-words">{error}</div>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2 mb-12">
           <button

@@ -5,6 +5,31 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export async function fetchJson<T = unknown>(
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<T> {
+  const res = await fetch(input, init);
+  const text = await res.text();
+  let data: unknown = null;
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+
+  if (!res.ok) {
+    const message =
+      typeof data === "object" && data && "error" in data
+        ? String((data as { error: unknown }).error)
+        : res.statusText || `Request failed: ${res.status}`;
+    throw new Error(message);
+  }
+
+  return data as T;
+}
+
 export function formatRuntime(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;

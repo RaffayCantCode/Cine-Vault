@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
     const data = await tmdbFetch("/discover/movie", params);
     return Response.json(data);
   } catch (error) {
-    return Response.json({ error: "Failed to discover movies" }, { status: 500 });
+    const message =
+      error instanceof Error && error.message ? error.message : "Failed to discover movies";
+    return Response.json({ error: message }, { status: 500 });
   }
 }

@@ -12,9 +12,8 @@ export async function GET(
     });
     return Response.json(data);
   } catch (error) {
-    return Response.json(
-      { error: "Failed to fetch movie details" },
-      { status: 500 }
-    );
+    const message =
+      error instanceof Error && error.message ? error.message : "Failed to fetch movie details";
+    return Response.json({ error: message }, { status: 500 });
   }
 }

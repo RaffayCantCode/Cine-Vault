@@ -10,9 +10,8 @@ export async function GET(
     const data = await tmdbFetch(`/tv/${id}/season/${seasonNumber}`);
     return Response.json(data);
   } catch (error) {
-    return Response.json(
-      { error: "Failed to fetch season details" },
-      { status: 500 }
-    );
+    const message =
+      error instanceof Error && error.message ? error.message : "Failed to fetch season details";
+    return Response.json({ error: message }, { status: 500 });
   }
 }

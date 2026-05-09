@@ -6,6 +6,7 @@ import { MediaCard } from "@/components/MediaCard";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Search as SearchIcon, MonitorPlay } from "lucide-react";
 import { Input } from "@/components/ui/Input";
+import { fetchJson } from "@/lib/utils";
 
 interface MediaItem {
   id: number;
@@ -24,6 +25,7 @@ export default function SearchPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [results, setResults] = useState<MediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -33,19 +35,23 @@ export default function SearchPage() {
     const search = async () => {
       if (debouncedQuery.length < 2) {
         setResults([]);
+        setError(null);
         return;
       }
 
       setIsLoading(true);
+      setError(null);
       try {
-        const res = await fetch(`/api/tmdb/search?query=${encodeURIComponent(debouncedQuery)}`);
-        const data = await res.json();
+        const data = await fetchJson<{ results: MediaItem[] }>(
+          `/api/tmdb/search?query=${encodeURIComponent(debouncedQuery)}`
+        );
         const filtered = data.results?.filter(
           (r: MediaItem) => r.media_type === "movie" || r.media_type === "tv"
         ) || [];
         setResults(filtered);
       } catch (error) {
-        console.error("Search failed:", error);
+        setResults([]);
+        setError(error instanceof Error ? error.message : "Search failed");
       } finally {
         setIsLoading(false);
       }
@@ -78,6 +84,11 @@ export default function SearchPage() {
             <MonitorPlay className="w-16 h-16 mb-4 opacity-20" />
             <h3 className="text-xl font-medium text-white mb-2">Find something to watch</h3>
             <p>Start typing to search across thousands of movies and TV shows.</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
+            <h3 className="text-xl font-medium text-white mb-2">Search is unavailable</h3>
+            <p className="max-w-xl break-words">{error}</p>
           </div>
         ) : isLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">

@@ -13,9 +13,10 @@ export async function GET(request: NextRequest) {
     });
     return Response.json(data);
   } catch (error) {
-    return Response.json(
-      { error: "Failed to fetch trending content" },
-      { status: 500 }
-    );
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Failed to fetch trending content";
+    return Response.json({ error: message }, { status: 500 });
   }
 }
