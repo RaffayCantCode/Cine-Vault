@@ -1,24 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MediaCard } from "./MediaCard";
+import { AnimeCard, AnimeItem } from "./AnimeCard";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
 
-interface MediaItem {
-  id: number;
-  title?: string;
-  name?: string;
-  poster_path?: string;
-  media_type?: string;
-  release_date?: string;
-  first_air_date?: string;
-  vote_average?: number;
-}
-
-interface MediaRowProps {
+interface AnimeRowProps {
   title: string;
-  items?: MediaItem[];
+  items?: AnimeItem[];
   isLoading?: boolean;
   seeAllHref?: string;
 }
@@ -32,7 +21,7 @@ function SkeletonCard({ index }: { index: number }) {
   );
 }
 
-export function MediaRow({ title, items, isLoading, seeAllHref }: MediaRowProps) {
+export function AnimeRow({ title, items, isLoading, seeAllHref }: AnimeRowProps) {
   if (!isLoading && (!items || items.length === 0)) return null;
 
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -77,8 +66,12 @@ export function MediaRow({ title, items, isLoading, seeAllHref }: MediaRowProps)
     >
       <div className="flex items-center justify-between px-5 md:px-10">
         <div className="flex items-center gap-3">
-          <div className="w-1 h-5 bg-primary rounded-full" />
+          {/* Violet accent for anime rows */}
+          <div className="w-1 h-5 bg-violet-500 rounded-full" />
           <h2 className="text-base md:text-lg font-bold text-white tracking-wide">{title}</h2>
+          <span className="text-[10px] font-bold tracking-widest text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded-full uppercase">
+            🇯🇵 JP Sub/Dub
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <div className="hidden md:flex items-center gap-1">
@@ -86,7 +79,7 @@ export function MediaRow({ title, items, isLoading, seeAllHref }: MediaRowProps)
               type="button"
               onClick={() => scrollByAmount("left")}
               disabled={!canScrollLeft}
-              className="w-9 h-9 rounded-full border border-white/10 bg-white/[0.03] text-white/70 hover:text-white hover:bg-white/[0.06] disabled:opacity-40 disabled:hover:bg-white/[0.03] transition"
+              className="w-9 h-9 rounded-full border border-violet-500/20 bg-violet-500/[0.05] text-white/70 hover:text-white hover:bg-violet-500/[0.12] disabled:opacity-40 disabled:hover:bg-violet-500/[0.05] transition"
               aria-label="Scroll left"
             >
               <ChevronLeft className="w-4 h-4 mx-auto" />
@@ -95,7 +88,7 @@ export function MediaRow({ title, items, isLoading, seeAllHref }: MediaRowProps)
               type="button"
               onClick={() => scrollByAmount("right")}
               disabled={!canScrollRight}
-              className="w-9 h-9 rounded-full border border-white/10 bg-white/[0.03] text-white/70 hover:text-white hover:bg-white/[0.06] disabled:opacity-40 disabled:hover:bg-white/[0.03] transition"
+              className="w-9 h-9 rounded-full border border-violet-500/20 bg-violet-500/[0.05] text-white/70 hover:text-white hover:bg-violet-500/[0.12] disabled:opacity-40 disabled:hover:bg-violet-500/[0.05] transition"
               aria-label="Scroll right"
             >
               <ChevronRight className="w-4 h-4 mx-auto" />
@@ -104,7 +97,7 @@ export function MediaRow({ title, items, isLoading, seeAllHref }: MediaRowProps)
           {seeAllHref && (
             <a
               href={seeAllHref}
-              className="flex items-center gap-0.5 text-xs font-semibold text-white/40 hover:text-primary transition-colors group"
+              className="flex items-center gap-0.5 text-xs font-semibold text-violet-400/70 hover:text-violet-400 transition-colors group"
             >
               See all
               <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -120,7 +113,7 @@ export function MediaRow({ title, items, isLoading, seeAllHref }: MediaRowProps)
                 <SkeletonCard key={i} index={i} />
               ))
             : items?.map((item, i) => (
-                <MediaCard key={item.id} item={item} index={i} />
+                <AnimeCard key={item.id} item={item} index={i} />
               ))}
         </div>
       </div>

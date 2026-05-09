@@ -25,9 +25,11 @@ export function Navigation() {
   useEffect(() => setMobileOpen(false), [pathname]);
 
   const links = [
-    { href: "/", label: "Home" },
-    { href: "/browse/movies", label: "Movies" },
-    { href: "/browse/tv", label: "TV Shows" },
+    { href: "/", label: "Home", accent: null },
+    { href: "/browse/trending", label: "Trending", accent: null },
+    { href: "/browse/movies", label: "Movies", accent: null },
+    { href: "/browse/tv", label: "TV Shows", accent: null },
+    { href: "/anime", label: "🇯🇵 Anime", accent: "violet" },
   ];
 
   return (
@@ -63,8 +65,9 @@ export function Navigation() {
           </Link>
 
           <div className="hidden md:flex items-center gap-1">
-            {links.map(({ href, label }) => {
-              const active = pathname === href;
+            {links.map(({ href, label, accent }) => {
+              const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+              const isAnime = accent === "violet";
               return (
                 <Link
                   key={href}
@@ -72,7 +75,9 @@ export function Navigation() {
                   className={cn(
                     "relative px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-200",
                     active
-                      ? "text-white"
+                      ? isAnime ? "text-violet-300" : "text-white"
+                      : isAnime
+                      ? "text-violet-400/70 hover:text-violet-300 hover:bg-violet-500/[0.08]"
                       : "text-white/50 hover:text-white/90 hover:bg-white/[0.06]"
                   )}
                 >
@@ -80,7 +85,12 @@ export function Navigation() {
                   {active && (
                     <motion.div
                       layoutId="nav-pill"
-                      className="absolute inset-0 bg-white/[0.09] rounded-lg border border-white/[0.06]"
+                      className={cn(
+                        "absolute inset-0 rounded-lg border",
+                        isAnime
+                          ? "bg-violet-500/[0.12] border-violet-500/[0.15]"
+                          : "bg-white/[0.09] border-white/[0.06]"
+                      )}
                       transition={{ type: "spring", stiffness: 380, damping: 35 }}
                     />
                   )}
@@ -124,7 +134,7 @@ export function Navigation() {
               ) : (
                 <button
                   onClick={() => signIn()}
-                  className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary/85 active:scale-95 text-white text-xs font-bold transition-all duration-200 shadow-lg shadow-primary/20"
+                  className="hidden md:flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary hover:bg-primary/85 active:scale-95 text-primary-foreground text-xs font-bold transition-all duration-200 shadow-lg shadow-primary/20"
                 >
                   <LogIn className="w-3.5 h-3.5" />
                   Log in
@@ -152,13 +162,17 @@ export function Navigation() {
             transition={{ duration: 0.2 }}
             className="fixed top-16 inset-x-0 z-40 bg-black/95 backdrop-blur-xl border-b border-white/[0.06] px-5 py-4 md:hidden"
           >
-            {links.map(({ href, label }) => (
+            {links.map(({ href, label, accent }) => (
               <Link
                 key={href}
                 href={href}
                 className={cn(
                   "block px-4 py-3 rounded-lg text-sm font-semibold transition-colors",
-                  pathname === href ? "text-white bg-white/[0.08]" : "text-white/50 hover:text-white hover:bg-white/[0.04]"
+                  pathname === href
+                    ? accent === "violet" ? "text-violet-300 bg-violet-500/[0.08]" : "text-white bg-white/[0.08]"
+                    : accent === "violet"
+                    ? "text-violet-400/70 hover:text-violet-300 hover:bg-violet-500/[0.06]"
+                    : "text-white/50 hover:text-white hover:bg-white/[0.04]"
                 )}
               >
                 {label}

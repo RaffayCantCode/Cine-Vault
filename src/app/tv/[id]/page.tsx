@@ -259,7 +259,7 @@ export default function TvDetailPage() {
                   const ep = seasonData?.episodes?.[0];
                   handleWatchEpisode(selectedSeason, ep?.episode_number ?? 1, ep?.name);
                 }}
-                className="group flex items-center gap-2.5 bg-primary hover:bg-primary/85 active:scale-95 text-white font-bold px-8 py-4 rounded-xl text-sm transition-all duration-200 shadow-xl shadow-primary/25"
+                className="group flex items-center gap-2.5 bg-primary hover:bg-primary/85 active:scale-95 text-primary-foreground font-bold px-8 py-4 rounded-xl text-sm transition-all duration-200 shadow-xl shadow-primary/25"
               >
                 <Play className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />
                 Watch S{selectedSeason} E1
@@ -287,7 +287,7 @@ export default function TvDetailPage() {
                     className={cn(
                       "px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200",
                       selectedSeason === s.season_number
-                        ? "bg-primary text-white shadow-md shadow-primary/30"
+                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
                         : "bg-white/[0.06] text-white/50 hover:bg-white/[0.10] hover:text-white border border-white/[0.06]"
                     )}
                   >

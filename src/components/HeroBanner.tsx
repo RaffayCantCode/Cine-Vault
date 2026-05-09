@@ -106,7 +106,7 @@ export function HeroBanner({ item }: HeroBannerProps) {
             href={watchLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex items-center gap-2.5 bg-primary hover:bg-primary/85 active:scale-95 text-white font-bold px-7 py-3.5 rounded-xl text-sm transition-all duration-200 shadow-lg shadow-primary/30"
+            className="group flex items-center gap-2.5 bg-primary hover:bg-primary/90 active:scale-95 text-primary-foreground font-bold px-7 py-3.5 rounded-xl text-sm transition-all duration-200 shadow-lg shadow-primary/25"
           >
             <span className="relative w-5 h-5">
               <Play className="w-5 h-5 fill-current absolute inset-0 group-hover:scale-110 transition-transform" />

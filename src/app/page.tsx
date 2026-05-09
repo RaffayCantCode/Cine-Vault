@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { Navigation } from "@/components/Navigation";
 import { HeroBanner } from "@/components/HeroBanner";
 import { MediaRow } from "@/components/MediaRow";
+import { AnimeRow } from "@/components/AnimeRow";
 import { ContinueWatching } from "@/components/ContinueWatching";
-import { fetchJson } from "@/lib/utils";
+import { fetchJson, shuffleArray } from "@/lib/utils";
+import { AnimeItem } from "@/components/AnimeCard";
 
 interface MediaItem {
   id: number;
@@ -18,10 +20,29 @@ interface MediaItem {
   first_air_date?: string;
   vote_average?: number;
   overview?: string;
+  adult?: boolean;
 }
 
 interface ApiResponse {
   results: MediaItem[];
+}
+
+// Filter out adult/18+ content from TMDB results
+function filterSafeContent(items: MediaItem[]): MediaItem[] {
+  return items.filter((item) => {
+    // Remove items explicitly flagged as adult
+    if (item.adult === true) return false;
+    return true;
+  });
+}
+
+// Pick a truly random hero item (not always index 0)
+function pickRandomHero(items: MediaItem[]): MediaItem | undefined {
+  if (!items.length) return undefined;
+  // Exclude adult items and pick from first 15 for variety
+  const pool = filterSafeContent(items).slice(0, 15);
+  if (!pool.length) return items[0];
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 export default function Home() {
@@ -30,7 +51,12 @@ export default function Home() {
   const [topRatedMovies, setTopRatedMovies] = useState<MediaItem[]>([]);
   const [popularTv, setPopularTv] = useState<MediaItem[]>([]);
   const [topRatedTv, setTopRatedTv] = useState<MediaItem[]>([]);
+  const [heroItem, setHeroItem] = useState<MediaItem | undefined>(undefined);
+  // Anime state
+  const [animeSpotlight, setAnimeSpotlight] = useState<AnimeItem[]>([]);
+  const [animeNew, setAnimeNew] = useState<AnimeItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [animeLoading, setAnimeLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,6 +64,8 @@ export default function Home() {
       setIsLoading(true);
       setError(null);
       try {
+        // Fetch multiple pages for more variety + better randomness
+        const pageNum = Math.floor(Math.random() * 3) + 1; // random page 1-3
         const [
           trendingData,
           popularMoviesData,
@@ -45,18 +73,25 @@ export default function Home() {
           popularTvData,
           topRatedTvData,
         ] = await Promise.all([
-          fetchJson<ApiResponse>("/api/tmdb/trending?type=all&timeWindow=week"),
-          fetchJson<ApiResponse>("/api/tmdb/movies/popular"),
-          fetchJson<ApiResponse>("/api/tmdb/movies/top-rated"),
-          fetchJson<ApiResponse>("/api/tmdb/tv/popular"),
-          fetchJson<ApiResponse>("/api/tmdb/tv/top-rated"),
+          fetchJson<ApiResponse>(`/api/tmdb/trending?type=all&timeWindow=week&page=${pageNum}`),
+          fetchJson<ApiResponse>(`/api/tmdb/movies/popular?page=${Math.floor(Math.random() * 5) + 1}`),
+          fetchJson<ApiResponse>(`/api/tmdb/movies/top-rated?page=${Math.floor(Math.random() * 5) + 1}`),
+          fetchJson<ApiResponse>(`/api/tmdb/tv/popular?page=${Math.floor(Math.random() * 5) + 1}`),
+          fetchJson<ApiResponse>(`/api/tmdb/tv/top-rated?page=${Math.floor(Math.random() * 5) + 1}`),
         ]);
 
-        setTrending(trendingData.results || []);
-        setPopularMovies(popularMoviesData.results || []);
-        setTopRatedMovies(topRatedMoviesData.results || []);
-        setPopularTv(popularTvData.results || []);
-        setTopRatedTv(topRatedTvData.results || []);
+        const safeFiltered = filterSafeContent(shuffleArray(trendingData.results || []));
+        const safePM = filterSafeContent(shuffleArray(popularMoviesData.results || []));
+        const safeTRM = filterSafeContent(shuffleArray(topRatedMoviesData.results || []));
+        const safePTV = filterSafeContent(shuffleArray(popularTvData.results || []));
+        const safeTRTV = filterSafeContent(shuffleArray(topRatedTvData.results || []));
+
+        setTrending(safeFiltered);
+        setHeroItem(pickRandomHero(safeFiltered));
+        setPopularMovies(safePM);
+        setTopRatedMovies(safeTRM);
+        setPopularTv(safePTV);
+        setTopRatedTv(safeTRTV);
       } catch (error) {
         setTrending([]);
         setPopularMovies([]);
@@ -72,7 +107,37 @@ export default function Home() {
     fetchData();
   }, []);
 
-  const heroItem = trending[0];
+  // Fetch anime separately so it doesn't block the main content
+  useEffect(() => {
+    const fetchAnime = async () => {
+      setAnimeLoading(true);
+      try {
+        const data = await fetchJson<{
+          success: boolean;
+          data: {
+            spotlightAnimes?: AnimeItem[];
+            latestEpisodeAnimes?: AnimeItem[];
+            newReleases?: AnimeItem[];
+          };
+        }>("/api/anime?category=home");
+
+        if (data.success && data.data) {
+          const spotlight = shuffleArray(data.data.spotlightAnimes || []);
+          const latest = shuffleArray(data.data.latestEpisodeAnimes || []);
+          setAnimeSpotlight(spotlight.length ? spotlight : latest);
+          setAnimeNew(shuffleArray(data.data.newReleases || latest));
+        }
+      } catch {
+        // Anime failing silently — it's not critical
+        setAnimeSpotlight([]);
+        setAnimeNew([]);
+      } finally {
+        setAnimeLoading(false);
+      }
+    };
+
+    fetchAnime();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
@@ -97,26 +162,44 @@ export default function Home() {
           title="Trending This Week"
           items={trending.slice(1)}
           isLoading={isLoading}
+          seeAllHref="/browse/trending"
+        />
+        {/* Anime section — clearly labelled with violet accent */}
+        <AnimeRow
+          title="Anime Spotlight"
+          items={animeSpotlight}
+          isLoading={animeLoading}
+          seeAllHref="/anime"
         />
         <MediaRow
           title="Popular Movies"
           items={popularMovies}
           isLoading={isLoading}
+          seeAllHref="/browse/movies/popular"
+        />
+        <AnimeRow
+          title="New Anime Releases"
+          items={animeNew}
+          isLoading={animeLoading}
+          seeAllHref="/anime"
         />
         <MediaRow
           title="Top Rated Movies"
           items={topRatedMovies}
           isLoading={isLoading}
+          seeAllHref="/browse/movies/top-rated"
         />
         <MediaRow
           title="Popular TV Shows"
           items={popularTv}
           isLoading={isLoading}
+          seeAllHref="/browse/tv/popular"
         />
         <MediaRow
           title="Top Rated TV Shows"
           items={topRatedTv}
           isLoading={isLoading}
+          seeAllHref="/browse/tv/top-rated"
         />
       </div>
     </div>

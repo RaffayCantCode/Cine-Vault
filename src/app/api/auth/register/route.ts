@@ -23,9 +23,10 @@ export async function POST(request: Request) {
     }
 
     const { name, email, password } = parsed.data;
+    const emailNormalized = email.trim().toLowerCase();
 
     const existingUser = await db.query.users.findFirst({
-      where: eq(users.email, email),
+      where: eq(users.email, emailNormalized),
     });
 
     if (existingUser) {
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
       .insert(users)
       .values({
         name,
-        email,
+        email: emailNormalized,
         password: hashedPassword,
       })
       .returning();
