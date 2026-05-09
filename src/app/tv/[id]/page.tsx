@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Navigation } from "@/components/Navigation";
 import { MediaRow } from "@/components/MediaRow";
+import { VideoPlayer } from "@/components/VideoPlayer";
 import { Play, Star, Calendar, ExternalLink, CheckCircle2 } from "lucide-react";
 import { cn, fetchJson } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -52,6 +53,7 @@ export default function TvDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
+  const [selectedEpisode, setSelectedEpisode] = useState<number>(1);
   const [seasonData, setSeasonData] = useState<Season | null>(null);
   const [seasonLoading, setSeasonLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +97,9 @@ export default function TvDetailPage() {
   }, [id, selectedSeason]);
 
   const handleWatchEpisode = async (season: number, episodeNumber: number, episodeName?: string) => {
+    setSelectedSeason(season);
+    setSelectedEpisode(episodeNumber);
+
     if (status === "authenticated" && show) {
       await fetch("/api/watch-history", {
         method: "POST",
@@ -253,14 +258,13 @@ export default function TvDetailPage() {
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }}>
               <button
                 onClick={() => {
-                  const ep = seasonData?.episodes?.[0];
+                  const ep = seasonData?.episodes?.find(e => e.episode_number === selectedEpisode) || seasonData?.episodes?.[0];
                   handleWatchEpisode(selectedSeason, ep?.episode_number ?? 1, ep?.name);
                 }}
                 className="group flex items-center gap-2.5 bg-primary hover:bg-primary/85 active:scale-95 text-primary-foreground font-bold px-8 py-4 rounded-xl text-sm transition-all duration-200 shadow-xl shadow-primary/25"
               >
                 <Play className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />
-                Watch S{selectedSeason} E1
-                
+                Watch S{selectedSeason} E{selectedEpisode}
               </button>
             </motion.div>
           </div>
@@ -270,19 +274,13 @@ export default function TvDetailPage() {
       <div className="max-w-screen-2xl mx-auto px-5 md:px-10 mt-10 space-y-14">
       {isPlaying && (
         <div className="max-w-screen-2xl mx-auto px-5 md:px-10 mt-10 mb-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="w-full aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black ring-1 ring-white/10"
-          >
-            <iframe
-              src={`https://www.vidking.net/embed/tv/${id}/${selectedSeason}/${seasonData?.episodes?.[0]?.episode_number ?? 1}?autoPlay=true`}
-              className="w-full h-full"
-              allowFullScreen
-              allow="autoplay; fullscreen"
-              title="Watch TV"
-            />
-          </motion.div>
+          <VideoPlayer
+            type="tv"
+            id={id}
+            season={selectedSeason}
+            episode={selectedEpisode}
+            title={`${show.name} - S${selectedSeason}E${selectedEpisode}`}
+          />
         </div>
       )}
         <section>

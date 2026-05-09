@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Navigation } from "@/components/Navigation";
 import { MediaRow } from "@/components/MediaRow";
+import { VideoPlayer } from "@/components/VideoPlayer";
 import { Play, Star, Clock, Calendar, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
@@ -241,19 +242,7 @@ export default function MovieDetailPage() {
 
       {isPlaying && (
         <div className="max-w-screen-2xl mx-auto px-5 md:px-10 mt-8 mb-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="w-full aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black ring-1 ring-white/10"
-          >
-            <iframe
-              src={`https://www.vidking.net/embed/movie/${id}?autoPlay=true`}
-              className="w-full h-full"
-              allowFullScreen
-              allow="autoplay; fullscreen"
-              title="Watch"
-            />
-          </motion.div>
+          <VideoPlayer type="movie" id={id} title={movie.title} />
         </div>
       )}
 

@@ -29,7 +29,6 @@ export function Navigation() {
     { href: "/browse/trending", label: "Trending", accent: null },
     { href: "/browse/movies", label: "Movies", accent: null },
     { href: "/browse/tv", label: "TV Shows", accent: null },
-    { href: "/anime", label: "🇯🇵 Anime", accent: "violet" },
   ];
 
   return (
