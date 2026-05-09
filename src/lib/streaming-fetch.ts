@@ -1,16 +1,22 @@
 // Multi-API Streaming Fetcher with Fallback Logic
 // APIs included:
-// 1. VidSrc - https://vidsrc.to
-// 2. Embed.su - https://embed.su
-// 3. 2Embed - https://www.2embed.cc
+// 1. 2Embed - https://www.2embed.cc (Most reliable)
+// 2. VidSrc - https://vidsrc.to
+// 3. Embed.su - https://embed.su
+// 4. VidKing - https://www.vidking.net
 
 interface StreamingAPIConfig {
   name: string;
   baseUrl: string;
-  type: "vidsrc" | "embedsu" | "2embed";
+  type: "vidsrc" | "embedsu" | "2embed" | "vidking";
 }
 
 const STREAMING_APIS: StreamingAPIConfig[] = [
+  {
+    name: "2Embed",
+    baseUrl: "https://www.2embed.cc",
+    type: "2embed",
+  },
   {
     name: "VidSrc",
     baseUrl: "https://vidsrc.to",
@@ -22,9 +28,9 @@ const STREAMING_APIS: StreamingAPIConfig[] = [
     type: "embedsu",
   },
   {
-    name: "2Embed",
-    baseUrl: "https://www.2embed.cc",
-    type: "2embed",
+    name: "VidKing",
+    baseUrl: "https://www.vidking.net",
+    type: "vidking",
   },
 ];
 
@@ -48,6 +54,12 @@ function buildEmbedUrl(api: StreamingAPIConfig, type: "movie" | "tv", id: number
         return `${api.baseUrl}/embed/${id}`;
       }
       return `${api.baseUrl}/embedtv/${id}/${season ?? 1}/${episode ?? 1}`;
+    
+    case "vidking":
+      if (type === "movie") {
+        return `${api.baseUrl}/embed/movie/${id}`;
+      }
+      return `${api.baseUrl}/embed/tv/${id}/${season ?? 1}/${episode ?? 1}`;
     
     default:
       return "";

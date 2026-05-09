@@ -4,10 +4,8 @@ import { useEffect, useState } from "react";
 import { Navigation } from "@/components/Navigation";
 import { HeroBanner } from "@/components/HeroBanner";
 import { MediaRow } from "@/components/MediaRow";
-import { AnimeRow } from "@/components/AnimeRow";
 import { ContinueWatching } from "@/components/ContinueWatching";
 import { fetchJson, shuffleArray, filterReleasedSafeContent } from "@/lib/utils";
-import { AnimeItem } from "@/components/AnimeCard";
 
 interface MediaItem {
   id: number;
@@ -45,11 +43,7 @@ export default function Home() {
   const [popularTv, setPopularTv] = useState<MediaItem[]>([]);
   const [topRatedTv, setTopRatedTv] = useState<MediaItem[]>([]);
   const [heroItem, setHeroItem] = useState<MediaItem | undefined>(undefined);
-  // Anime state
-  const [animeSpotlight, setAnimeSpotlight] = useState<AnimeItem[]>([]);
-  const [animeNew, setAnimeNew] = useState<AnimeItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [animeLoading, setAnimeLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -100,38 +94,6 @@ export default function Home() {
     fetchData();
   }, []);
 
-  // Fetch anime separately so it doesn't block the main content
-  useEffect(() => {
-    const fetchAnime = async () => {
-      setAnimeLoading(true);
-      try {
-        const data = await fetchJson<{
-          success: boolean;
-          data: {
-            spotlightAnimes?: AnimeItem[];
-            latestEpisodeAnimes?: AnimeItem[];
-            newReleases?: AnimeItem[];
-          };
-        }>("/api/anime?category=home");
-
-        if (data.success && data.data) {
-          const spotlight = shuffleArray(data.data.spotlightAnimes || []);
-          const latest = shuffleArray(data.data.latestEpisodeAnimes || []);
-          setAnimeSpotlight(spotlight.length ? spotlight : latest);
-          setAnimeNew(shuffleArray(data.data.newReleases || latest));
-        }
-      } catch {
-        // Anime failing silently — it's not critical
-        setAnimeSpotlight([]);
-        setAnimeNew([]);
-      } finally {
-        setAnimeLoading(false);
-      }
-    };
-
-    fetchAnime();
-  }, []);
-
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
       <Navigation />
@@ -157,24 +119,11 @@ export default function Home() {
           isLoading={isLoading}
           seeAllHref="/browse/trending"
         />
-        {/* Anime section — clearly labelled with violet accent */}
-        <AnimeRow
-          title="Anime Spotlight"
-          items={animeSpotlight}
-          isLoading={animeLoading}
-          seeAllHref="/anime"
-        />
         <MediaRow
           title="Popular Movies"
           items={popularMovies}
           isLoading={isLoading}
           seeAllHref="/browse/movies/popular"
-        />
-        <AnimeRow
-          title="New Anime Releases"
-          items={animeNew}
-          isLoading={animeLoading}
-          seeAllHref="/anime"
         />
         <MediaRow
           title="Top Rated Movies"
