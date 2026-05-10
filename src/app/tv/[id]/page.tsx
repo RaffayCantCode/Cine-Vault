@@ -134,16 +134,17 @@ export default function TvDetailPage() {
       <div className="min-h-screen bg-background text-foreground pb-24">
         <Sidebar />
         <main className="md:pl-16 lg:pl-20">
-        <div className="pt-32 px-6 md:px-12 max-w-screen-2xl mx-auto">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-white/80">
-            <div className="text-lg font-bold text-white mb-1">Couldn&apos;t load this TV show</div>
-            {error ? (
-              <div className="text-sm text-white/50 break-words">{error}</div>
-            ) : (
-              <div className="text-sm text-white/50">Not found.</div>
-            )}
+          <div className="pt-32 px-6 md:px-12 max-w-screen-2xl mx-auto">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-white/80">
+              <div className="text-lg font-bold text-white mb-1">Couldn&apos;t load this TV show</div>
+              {error ? (
+                <div className="text-sm text-white/50 break-words">{error}</div>
+              ) : (
+                <div className="text-sm text-white/50">Not found.</div>
+              )}
+            </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -162,8 +163,9 @@ export default function TvDetailPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-24">
-      <Navigation />
+      <Sidebar />
 
+      <main className="md:pl-16 lg:pl-20">
       <div className="relative w-full h-[62vh] md:h-[72vh] overflow-hidden flex items-end">
         <div className="absolute inset-0 z-0">
           {backdropUrl ? (
@@ -432,6 +434,7 @@ export default function TvDetailPage() {
             <MediaRow title="More Like This" items={show.similar.results} />
           </div>
         )}
+        </div>
       </main>
     </div>
   );
