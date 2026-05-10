@@ -139,7 +139,7 @@ export default function Home() {
     <div className="min-h-screen bg-background text-foreground pb-20">
       <Sidebar />
 
-      <main className="md:pl-16 lg:pl-20 pt-4">
+      <main className="md:pl-56 lg:pl-64">
 
       {isLoading ? (
         <div className="w-full h-[70vh] md:h-[85vh] bg-muted animate-pulse" />

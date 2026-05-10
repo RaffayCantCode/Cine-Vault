@@ -59,7 +59,7 @@ export function BrowseGridPage({ title, description, endpoint, mediaType }: Brow
     <div className="min-h-screen bg-background text-foreground pb-20">
       <Sidebar />
 
-      <main className="md:pl-16 lg:pl-20">
+      <main className="md:pl-56 lg:pl-64">
       <div className="pt-32 px-6 md:px-12 max-w-screen-2xl mx-auto">
         <div className="mb-10">
           <h1 className="text-4xl font-bold text-white">{title}</h1>

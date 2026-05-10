@@ -91,7 +91,7 @@ export default function MovieDetailPage() {
     return (
       <div className="min-h-screen bg-background text-foreground pb-24">
         <Sidebar />
-        <main className="md:pl-16 lg:pl-20">
+        <main className="md:pl-56 lg:pl-64">
           <div className="pt-32 px-6 md:px-12 max-w-screen-2xl mx-auto">
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-white/80">
               <div className="text-lg font-bold text-white mb-1">Couldn&apos;t load this movie</div>
@@ -127,7 +127,7 @@ export default function MovieDetailPage() {
     <div className="min-h-screen bg-background text-foreground pb-24">
       <Sidebar />
 
-      <main className="md:pl-16 lg:pl-20">
+      <main className="md:pl-56 lg:pl-64">
         <div className="relative w-full h-[62vh] md:h-[72vh] overflow-hidden flex items-end">
         <div className="absolute inset-0 z-0">
           {backdropUrl ? (

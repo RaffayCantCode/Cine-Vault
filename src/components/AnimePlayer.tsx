@@ -106,7 +106,7 @@ export function AnimePlayer({ animeId, animeTitle, episode }: AnimePlayerProps) 
               allowFullScreen
               allow="autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-write"
               title={`${animeTitle} - Episode ${episode}`}
-              referrerPolicy={currentSource.requiresReferrer ? "origin" : "no-referrer"}
+              referrerPolicy="no-referrer"
               onLoad={() => setIsLoading(false)}
               onError={handleIframeError}
             />

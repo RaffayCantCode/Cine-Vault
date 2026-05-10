@@ -11,6 +11,29 @@ export default function AnimeBrowsePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"spotlight" | "latest" | "popular">("spotlight");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await fetchJson<{
+        success: boolean;
+        data: { latestEpisodeAnimes?: AnimeItem[]; newReleases?: AnimeItem[] };
+      }>(`/api/anime?category=search&q=${encodeURIComponent(searchQuery)}`);
+      if (data.success && data.data) {
+        const all = [...(data.data.latestEpisodeAnimes || []), ...(data.data.newReleases || [])];
+        setAnimes(all);
+      } else {
+        throw new Error("Search failed");
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Search failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -56,20 +79,40 @@ export default function AnimeBrowsePage() {
     <div className="min-h-screen bg-background text-foreground pb-20">
       <Sidebar />
 
-      <main className="md:pl-16 lg:pl-20 pt-4">
-      <div className="pt-8 md:pt-12 px-6 md:px-12 max-w-screen-2xl mx-auto">
+      <main className="md:pl-56 lg:pl-64">
+      <div className="px-6 md:px-12 max-w-screen-2xl mx-auto">
         {/* Header */}
         <div className="mb-10">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-1.5 h-8 bg-violet-500 rounded-full" />
-            <h1 className="text-4xl font-bold text-white">Anime</h1>
-            <span className="text-xs font-bold tracking-widest text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2.5 py-1 rounded-full uppercase">
-              🇯🇵 Japanese Dub · English Subtitles
-            </span>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-1.5 h-8 bg-violet-500 rounded-full" />
+                <h1 className="text-4xl font-bold text-white">Anime</h1>
+                <span className="text-xs font-bold tracking-widest text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2.5 py-1 rounded-full uppercase">
+                  🇯🇵 Japanese Dub · English Subtitles
+                </span>
+              </div>
+              <p className="text-sm text-white/40 mt-1 ml-5">
+                All anime here are in Japanese audio with English subtitles. Different from English-dubbed shows.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 ml-5 md:ml-0">
+              <input
+                type="text"
+                placeholder="Search anime..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="h-10 px-4 rounded-xl bg-white/[0.05] border border-white/10 text-white/80 text-sm font-semibold outline-none placeholder:text-white/30 w-40"
+              />
+              <button
+                onClick={handleSearch}
+                className="h-10 px-4 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 transition"
+              >
+                Search
+              </button>
+            </div>
           </div>
-          <p className="text-sm text-white/40 mt-1 ml-5">
-            All anime here are in Japanese audio with English subtitles. Different from English-dubbed shows.
-          </p>
         </div>
 
         {/* Tabs */}

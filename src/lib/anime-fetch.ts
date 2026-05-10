@@ -50,21 +50,38 @@ function transformResponse(apiType: string, data: any): any {
 // Transform Anikoto API response
 function transformAnikoto(data: any): any {
   if (data.ok && data.data) {
-    const items = data.data.map((item: any) => ({
-      id: String(item.id),
-      name: item.title || "Unknown",
-      jname: item.native || null,
-      poster: item.poster || "",
-      type: "TV",
-      episodes: {
-        sub: item.is_sub || null,
-        dub: item.is_dub || null,
-      },
-      rating: item.score || null,
-      description: item.description || "",
-      genres: item.terms_by_type?.genre || [],
-    }));
-    return { success: true, data: items };
+    // Check if it's an array (search) or single object (series)
+    if (Array.isArray(data.data)) {
+      const items = data.data.map((item: any) => ({
+        id: String(item.id),
+        name: item.title || "Unknown",
+        jname: item.native || null,
+        poster: item.poster || "",
+        type: "TV",
+        episodes: {
+          sub: item.is_sub || null,
+          dub: item.is_dub || null,
+        },
+        rating: item.score || null,
+        description: item.description || "",
+        genres: item.terms_by_type?.genre || [],
+      }));
+      return { success: true, data: items };
+    } else {
+      // Series detail response
+      return {
+        success: true,
+        data: {
+          ...data.data,
+          episodes: data.data.episodes?.map((ep: any, idx: number) => ({
+            episodeId: String(ep.id || idx + 1),
+            episodeNum: ep.number || idx + 1,
+            title: ep.title || `Episode ${idx + 1}`,
+          })) || [],
+          totalEpisodes: data.data.episodes?.length || 0,
+        },
+      };
+    }
   }
   return data;
 }
@@ -146,6 +163,10 @@ function buildEndpoint(api: AnimeAPIConfig, endpoint: string): string {
         const params = new URLSearchParams(endpoint.split("?")[1]);
         const keyword = params.get("keyword") || params.get("q") || "";
         return `${api.baseUrl}/search?title=${encodeURIComponent(keyword)}&page=1`;
+      }
+      if (endpoint.startsWith("/series/")) {
+        const seriesId = endpoint.replace("/series/", "");
+        return `${api.baseUrl}/series/${seriesId}`;
       }
       return `${api.baseUrl}/recent-anime?page=1&per_page=20`;
     
