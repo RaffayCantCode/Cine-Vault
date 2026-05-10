@@ -63,15 +63,11 @@ export function Sidebar() {
       </AnimatePresence>
 
       {/* Sidebar */}
-      <motion.aside
-        initial={false}
-        animate={{
-          x: isOpen ? 0 : -280,
-        }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+      <aside
         className={cn(
-          "fixed md:sticky top-0 left-0 bottom-0 w-[280px] md:w-16 md:lg:w-20 z-50 flex flex-col",
-          "md:translate-x-0"
+          "fixed md:sticky top-0 left-0 bottom-0 w-[280px] md:w-16 lg:w-20 z-50 flex flex-col",
+          "transition-transform duration-300 ease-in-out md:translate-x-0",
+          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
         {/* Dark matte background */}
@@ -183,7 +179,7 @@ export function Sidebar() {
             )
           )}
         </div>
-      </motion.aside>
+      </aside>
     </>
   );
 }

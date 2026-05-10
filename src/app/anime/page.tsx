@@ -56,8 +56,8 @@ export default function AnimeBrowsePage() {
     <div className="min-h-screen bg-background text-foreground pb-20">
       <Sidebar />
 
-      <main className="md:pl-16 lg:pl-20">
-      <div className="pt-32 px-6 md:px-12 max-w-screen-2xl mx-auto">
+      <main className="md:pl-16 lg:pl-20 pt-4">
+      <div className="pt-8 md:pt-12 px-6 md:px-12 max-w-screen-2xl mx-auto">
         {/* Header */}
         <div className="mb-10">
           <div className="flex items-center gap-3 mb-2">
