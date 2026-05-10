@@ -9,10 +9,6 @@ export async function GET(request: NextRequest) {
     const data = await tmdbFetch("/movie/top_rated", { page });
     return Response.json(data);
   } catch (error) {
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : "Failed to fetch top rated movies";
-    return Response.json({ error: message }, { status: 500 });
+    return Response.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 500 });
   }
 }

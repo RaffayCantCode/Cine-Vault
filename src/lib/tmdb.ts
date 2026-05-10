@@ -2,7 +2,9 @@ const TMDB_BASE = "https://api.themoviedb.org/3";
 
 function getAuthHeader(): string {
   const token = process.env.TMDB_API_KEY;
-  if (!token) throw new Error("TMDB_API_KEY environment variable is not set");
+  if (!token || token === "") {
+    throw new Error("TMDB_API_KEY is not set");
+  }
   return `Bearer ${token}`;
 }
 
