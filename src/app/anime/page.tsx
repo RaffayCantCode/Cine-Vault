@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Navigation } from "@/components/Navigation";
+import { Sidebar } from "@/components/Sidebar";
 import { AnimeCard, AnimeItem } from "@/components/AnimeCard";
 import { fetchJson, shuffleArray } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -54,8 +54,9 @@ export default function AnimeBrowsePage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
-      <Navigation />
+      <Sidebar />
 
+      <main className="md:pl-16 lg:pl-20">
       <div className="pt-32 px-6 md:px-12 max-w-screen-2xl mx-auto">
         {/* Header */}
         <div className="mb-10">
@@ -124,6 +125,7 @@ export default function AnimeBrowsePage() {
           )
         )}
       </div>
+      </main>
     </div>
   );
 }

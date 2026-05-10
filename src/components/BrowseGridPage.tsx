@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Navigation } from "@/components/Navigation";
+import { Sidebar } from "@/components/Sidebar";
 import { MediaCard } from "@/components/MediaCard";
 import { fetchJson, shuffleArray } from "@/lib/utils";
 
@@ -57,8 +57,9 @@ export function BrowseGridPage({ title, description, endpoint, mediaType }: Brow
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
-      <Navigation />
+      <Sidebar />
 
+      <main className="md:pl-16 lg:pl-20">
       <div className="pt-32 px-6 md:px-12 max-w-screen-2xl mx-auto">
         <div className="mb-10">
           <h1 className="text-4xl font-bold text-white">{title}</h1>
@@ -99,6 +100,7 @@ export function BrowseGridPage({ title, description, endpoint, mediaType }: Brow
           </button>
         </div>
       </div>
+      </main>
     </div>
   );
 }

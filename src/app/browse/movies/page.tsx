@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Navigation } from "@/components/Navigation";
+import { Sidebar } from "@/components/Sidebar";
 import { MediaCard } from "@/components/MediaCard";
 import { cn, fetchJson, shuffleArray, filterReleasedSafeContent } from "@/lib/utils";
 
@@ -98,8 +98,9 @@ export default function BrowseMoviesPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
-      <Navigation />
+      <Sidebar />
 
+      <main className="md:pl-16 lg:pl-20">
       <div className="pt-32 px-6 md:px-12 max-w-screen-2xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
           <div>
@@ -194,6 +195,7 @@ export default function BrowseMoviesPage() {
           </button>
         </div>
       </div>
+      </main>
     </div>
   );
 }

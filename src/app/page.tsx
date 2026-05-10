@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Navigation } from "@/components/Navigation";
+import { Sidebar } from "@/components/Sidebar";
 import { HeroBanner } from "@/components/HeroBanner";
 import { MediaRow } from "@/components/MediaRow";
 import { ContinueWatching } from "@/components/ContinueWatching";
@@ -137,7 +137,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
-      <Navigation />
+      <Sidebar />
+
+      <main className="md:pl-16 lg:pl-20">
 
       {isLoading ? (
         <div className="w-full h-[70vh] md:h-[85vh] bg-muted animate-pulse" />
@@ -224,7 +226,8 @@ export default function Home() {
           isLoading={isLoading}
           seeAllHref="/browse/tv/top-rated"
         />
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Navigation } from "@/components/Navigation";
+import { Sidebar } from "@/components/Sidebar";
 import { MediaCard } from "@/components/MediaCard";
 import { AnimeCard, AnimeItem } from "@/components/AnimeCard";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -97,8 +97,9 @@ export default function SearchPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
-      <Navigation />
+      <Sidebar />
 
+      <main className="md:pl-16 lg:pl-20">
       <div className="pt-32 px-6 md:px-12 max-w-screen-2xl mx-auto">
         <div className="relative max-w-3xl mx-auto mb-10">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -207,6 +208,7 @@ export default function SearchPage() {
           </div>
         )}
       </div>
+      </main>
     </div>
   );
 }

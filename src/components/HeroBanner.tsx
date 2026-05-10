@@ -33,8 +33,8 @@ export function HeroBanner({ item }: HeroBannerProps) {
   const year = (item.release_date || item.first_air_date || "").slice(0, 4);
   const link = isMovie ? `/movie/${item.id}` : `/tv/${item.id}`;
   const watchLink = isMovie
-    ? `https://www.vidking.net/embed/movie/${item.id}`
-    : `https://www.vidking.net/embed/tv/${item.id}`;
+    ? `https://vidsrc-embed.ru/embed/movie/${item.id}?ds_lang=en`
+    : `https://vidsrc-embed.ru/embed/tv/${item.id}/1/1?ds_lang=en`;
 
   return (
     <div className="relative w-full h-[75vh] md:h-[90vh] flex items-end overflow-hidden">

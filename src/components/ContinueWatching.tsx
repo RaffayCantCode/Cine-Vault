@@ -45,7 +45,7 @@ export function ContinueWatching() {
     e.preventDefault();
     if (item.mediaType === "movie") {
       window.open(
-        `https://www.vidking.net/embed/movie/${item.mediaId}`,
+        `https://vidsrc-embed.ru/embed/movie/${item.mediaId}?ds_lang=en`,
         "_blank",
         "noopener,noreferrer"
       );
@@ -53,7 +53,7 @@ export function ContinueWatching() {
       const season = item.season ?? 1;
       const episode = item.episode ?? 1;
       window.open(
-        `https://www.vidking.net/embed/tv/${item.mediaId}/${season}/${episode}`,
+        `https://vidsrc-embed.ru/embed/tv/${item.mediaId}/${season}/${episode}?ds_lang=en`,
         "_blank",
         "noopener,noreferrer"
       );

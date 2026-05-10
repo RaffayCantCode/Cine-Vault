@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { Navigation } from "@/components/Navigation";
+import { Sidebar } from "@/components/Sidebar";
 import { MediaRow } from "@/components/MediaRow";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { Play, Star, Clock, Calendar, ExternalLink } from "lucide-react";
@@ -74,7 +74,7 @@ export default function MovieDetailPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background text-foreground">
-        <Navigation />
+        <Sidebar />
         <div className="w-full h-[65vh] bg-muted/30 animate-pulse" />
         <div className="px-5 md:px-10 py-12 max-w-screen-2xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
           <div className="md:col-span-2 space-y-4">
@@ -90,7 +90,8 @@ export default function MovieDetailPage() {
   if (!movie) {
     return (
       <div className="min-h-screen bg-background text-foreground pb-24">
-        <Navigation />
+        <Sidebar />
+        <main className="md:pl-16 lg:pl-20">
         <div className="pt-32 px-6 md:px-12 max-w-screen-2xl mx-auto">
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-white/80">
             <div className="text-lg font-bold text-white mb-1">Couldn&apos;t load this movie</div>
@@ -300,6 +301,7 @@ export default function MovieDetailPage() {
           </div>
         )}
       </div>
+    </main>
     </div>
   );
 }

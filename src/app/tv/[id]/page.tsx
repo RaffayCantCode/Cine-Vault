@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Navigation } from "@/components/Navigation";
+import { Sidebar } from "@/components/Sidebar";
 import { MediaRow } from "@/components/MediaRow";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { Play, Star, Calendar, ExternalLink, CheckCircle2 } from "lucide-react";
@@ -123,7 +123,7 @@ export default function TvDetailPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background text-foreground">
-        <Navigation />
+        <Sidebar />
         <div className="w-full h-[65vh] bg-muted/30 animate-pulse" />
       </div>
     );
@@ -132,7 +132,8 @@ export default function TvDetailPage() {
   if (!show) {
     return (
       <div className="min-h-screen bg-background text-foreground pb-24">
-        <Navigation />
+        <Sidebar />
+        <main className="md:pl-16 lg:pl-20">
         <div className="pt-32 px-6 md:px-12 max-w-screen-2xl mx-auto">
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-white/80">
             <div className="text-lg font-bold text-white mb-1">Couldn&apos;t load this TV show</div>
@@ -431,7 +432,7 @@ export default function TvDetailPage() {
             <MediaRow title="More Like This" items={show.similar.results} />
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

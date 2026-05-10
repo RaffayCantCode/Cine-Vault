@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Navigation } from "@/components/Navigation";
+import { Sidebar } from "@/components/Sidebar";
 import { AnimePlayer } from "@/components/AnimePlayer";
 import { fetchJson } from "@/lib/utils";
 import { Play, Star, ArrowLeft, Tv2, Clock, Globe } from "lucide-react";
@@ -96,8 +96,9 @@ export default function AnimeDetailPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
-      <Navigation />
+      <Sidebar />
 
+      <main className="md:pl-16 lg:pl-20">
       {isLoading ? (
         <div className="pt-32 px-6 md:px-12 max-w-screen-2xl mx-auto">
           <div className="w-full h-[60vh] rounded-2xl bg-muted/50 animate-pulse" />
@@ -305,6 +306,7 @@ export default function AnimeDetailPage() {
           </div>
         </>
       ) : null}
+      </main>
     </div>
   );
 }

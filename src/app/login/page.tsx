@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Navigation } from "@/components/Navigation";
+import { Sidebar } from "@/components/Sidebar";
 import { Input } from "@/components/ui/Input";
 import { Github, Chrome, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -38,8 +38,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Navigation />
+      <Sidebar />
 
+      <main className="md:pl-16 lg:pl-20">
       <div className="pt-32 px-6 md:px-12 max-w-screen-xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -124,6 +125,7 @@ export default function LoginPage() {
           </p>
         </motion.div>
       </div>
+      </main>
     </div>
   );
 }
