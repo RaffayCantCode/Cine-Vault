@@ -27,7 +27,7 @@ export async function getPopularManga(): Promise<any> {
           chapters
           genres
           averageScore
-          startDate
+          startDate { year }
           format
         }
       }
@@ -44,7 +44,7 @@ export async function getPopularManga(): Promise<any> {
     type: m.format,
     genres: m.genres || [],
     rating: m.averageScore ? String(m.averageScore) : null,
-    year: m.startDate ? parseInt(m.startDate) : null,
+    year: m.startDate?.year || null,
     chapters: m.chapters,
   }));
   
@@ -65,7 +65,7 @@ export async function getLatestManga(): Promise<any> {
           chapters
           genres
           averageScore
-          startDate
+          startDate { year }
           format
         }
       }
@@ -82,7 +82,7 @@ export async function getLatestManga(): Promise<any> {
     type: m.format,
     genres: m.genres || [],
     rating: m.averageScore ? String(m.averageScore) : null,
-    year: m.startDate ? parseInt(m.startDate) : null,
+    year: m.startDate?.year || null,
     chapters: m.chapters,
   }));
   
@@ -103,7 +103,7 @@ export async function searchManga(query: string): Promise<any> {
           chapters
           genres
           averageScore
-          startDate
+          startDate { year }
           format
         }
       }
@@ -120,7 +120,7 @@ export async function searchManga(query: string): Promise<any> {
     type: m.format,
     genres: m.genres || [],
     rating: m.averageScore ? String(m.averageScore) : null,
-    year: m.startDate ? parseInt(m.startDate) : null,
+    year: m.startDate?.year || null,
     chapters: m.chapters,
   }));
   
@@ -140,7 +140,7 @@ export async function getMangaDetails(mangaId: string): Promise<any> {
         chapters
         genres
         averageScore
-        startDate
+        startDate { year }
         format
         authors { nodes { name } }
       }
@@ -161,7 +161,7 @@ export async function getMangaDetails(mangaId: string): Promise<any> {
       type: m.format,
       genres: m.genres || [],
       rating: m.averageScore ? String(m.averageScore) : null,
-      year: m.startDate ? parseInt(m.startDate) : null,
+      year: m.startDate?.year || null,
       chapters: m.chapters,
       author: m.authors?.nodes?.[0]?.name || "Unknown",
     },

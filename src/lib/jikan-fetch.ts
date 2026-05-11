@@ -1,5 +1,65 @@
 // Jikan API - Free anime metadata API (Unofficial MyAnimeList)
 const JIKAN_BASE = "https://api.jikan.moe/v4";
+const ANIPUB_BASE = "https://anipub.xyz/api";
+
+// Helper to get AniPub image URL
+async function getAniPubImage(animeName: string): Promise<string | null> {
+  try {
+    const searchRes = await fetch(`${ANIPUB_BASE}/search/${encodeURIComponent(animeName)}`, {
+      next: { revalidate: 3600 }
+    });
+    if (!searchRes.ok) return null;
+    const searchData = await searchRes.json();
+    if (searchData && searchData.length > 0) {
+      const first = searchData[0];
+      if (first.Image && !first.Image.startsWith('http')) {
+        return `https://anipub.xyz/${first.Image}`;
+      }
+      return first.Image;
+    }
+  } catch (e) {
+    console.warn("[AniPub] Failed to get image:", e);
+  }
+  return null;
+}
+
+// Transform with AniPub fallback
+async function transformJikanToAnime(data: JikanResponse): Promise<any> {
+  const items = await Promise.all(data.data.map(async (anime) => {
+    // Try multiple image sources
+    let poster = 
+      anime.images.jpg?.large_image_url || 
+      anime.images.jpg?.image_url ||
+      anime.images.webp?.large_image_url ||
+      anime.images.webp?.image_url ||
+      anime.images.jpg?.small_image_url ||
+      "";
+    
+    // If no image, try AniPub fallback
+    if (!poster) {
+      const anipubImage = await getAniPubImage(anime.title);
+      if (anipubImage) poster = anipubImage;
+    }
+    
+    return {
+      id: String(anime.mal_id),
+      name: anime.title_english || anime.title,
+      jname: anime.title_japanese || null,
+      poster,
+      type: anime.type || "TV",
+      episodes: {
+        sub: anime.episodes || null,
+        dub: null,
+      },
+      rating: anime.score ? String(anime.score) : null,
+      description: anime.synopsis || "",
+      genres: [...anime.genres.map((g) => g.name), ...anime.themes.map((t) => t.name)],
+      year: anime.year,
+      status: anime.status,
+    };
+  }));
+  return { success: true, data: items, pagination: data.pagination };
+}
 
 export interface JikanAnime {
   mal_id: number;
@@ -39,38 +99,6 @@ export interface JikanResponse {
   };
 }
 
-// Transform Jikan response to our unified format
-function transformJikanToAnime(data: JikanResponse): any {
-  const items = data.data.map((anime) => {
-    // Try multiple image sources
-    const poster = 
-      anime.images.jpg?.large_image_url || 
-      anime.images.jpg?.image_url ||
-      anime.images.webp?.large_image_url ||
-      anime.images.webp?.image_url ||
-      anime.images.jpg?.small_image_url ||
-      "";
-    
-    return {
-      id: String(anime.mal_id),
-      name: anime.title_english || anime.title,
-      jname: anime.title_japanese || null,
-      poster,
-      type: anime.type || "TV",
-      episodes: {
-        sub: anime.episodes || null,
-        dub: null,
-      },
-      rating: anime.score ? String(anime.score) : null,
-      description: anime.synopsis || "",
-      genres: [...anime.genres.map((g) => g.name), ...anime.themes.map((t) => t.name)],
-      year: anime.year,
-      status: anime.status,
-    };
-  });
-  return { success: true, data: items, pagination: data.pagination };
-}
-
 // Get top anime (for home page)
 export async function getTopAnime(page: number = 1, limit: number = 25): Promise<any> {
   try {
@@ -80,7 +108,7 @@ export async function getTopAnime(page: number = 1, limit: number = 25): Promise
     });
     if (!res.ok) throw new Error(`Jikan returned ${res.status}`);
     const data: JikanResponse = await res.json();
-    return transformJikanToAnime(data);
+    return await transformJikanToAnime(data);
   } catch (error) {
     console.error("[Jikan] Failed to get top anime:", error);
     throw error;
@@ -96,7 +124,7 @@ export async function getCurrentlyAiring(page: number = 1, limit: number = 25): 
     });
     if (!res.ok) throw new Error(`Jikan returned ${res.status}`);
     const data: JikanResponse = await res.json();
-    return transformJikanToAnime(data);
+    return await transformJikanToAnime(data);
   } catch (error) {
     console.error("[Jikan] Failed to get airing anime:", error);
     throw error;
@@ -115,7 +143,7 @@ export async function searchAnime(query: string, page: number = 1, limit: number
     );
     if (!res.ok) throw new Error(`Jikan returned ${res.status}`);
     const data: JikanResponse = await res.json();
-    return transformJikanToAnime(data);
+    return await transformJikanToAnime(data);
   } catch (error) {
     console.error("[Jikan] Failed to search anime:", error);
     throw error;
@@ -132,13 +160,21 @@ export async function getAnimeDetails(malId: number): Promise<any> {
     if (!res.ok) throw new Error(`Jikan returned ${res.status}`);
     const data = await res.json();
     const anime = data.data;
+    
+    // Get AniPub image as fallback if Jikan image is missing
+    let poster = anime.images.jpg?.large_image_url || anime.images.jpg?.image_url || "";
+    if (!poster) {
+      const anipubImage = await getAniPubImage(anime.title);
+      if (anipubImage) poster = anipubImage;
+    }
+    
     return {
       success: true,
       data: {
         id: String(anime.mal_id),
         name: anime.title_english || anime.title,
         jname: anime.title_japanese || null,
-        poster: anime.images.jpg.large_image_url,
+        poster,
         type: anime.type || "TV",
         episodes: {
           sub: anime.episodes || null,
@@ -177,7 +213,7 @@ export async function getRecentAnime(page: number = 1, limit: number = 25): Prom
     );
     if (!res.ok) throw new Error(`Jikan returned ${res.status}`);
     const data: JikanResponse = await res.json();
-    return transformJikanToAnime(data);
+    return await transformJikanToAnime(data);
   } catch (error) {
     console.error("[Jikan] Failed to get recent anime:", error);
     throw error;

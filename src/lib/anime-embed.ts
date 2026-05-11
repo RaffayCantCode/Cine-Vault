@@ -1,4 +1,4 @@
-// Anime Embed Sources - Using title-based search URLs
+// Anime Embed Sources - Using working streaming sites
 // These work by searching anime by title in the URL
 
 export interface AnimeEmbedSource {
@@ -18,32 +18,32 @@ function cleanAnimeTitle(title: string): string {
     .trim();
 }
 
-// Get all anime sources from title
+// Get all anime sources from title - use working embeds
 export function getAllAnimeSources(title: string, episode: number = 1): AnimeEmbedSource[] {
   const clean = cleanAnimeTitle(title);
   
   return [
     {
-      name: "2Embed",
-      embedUrl: `https://www.2embed.cc/embed/${clean}-episode-${episode}`,
+      name: "VidPlay",
+      embedUrl: `https://vidplay.site/embed/${clean}-episode-${episode}`,
       type: "iframe",
       quality: "HD",
     },
     {
-      name: "VidKing",
-      embedUrl: `https://www.vidking.net/embed/tv/${clean}/${episode}`,
+      name: "StreamSB",
+      embedUrl: `https://streamsb.net/embed/${clean}-episode-${episode}`,
       type: "iframe",
       quality: "HD",
     },
     {
-      name: "VidSrc",
-      embedUrl: `https://vidsrc-embed.ru/embed/tv/${clean}/${episode}`,
+      name: "Filemoon",
+      embedUrl: `https://filemoon.top/e/${clean}-episode-${episode}`,
       type: "iframe",
       quality: "HD",
     },
     {
-      name: "VidSrc.in",
-      embedUrl: `https://vidsrc.in/embed/tv/${clean}/${episode}`,
+      name: "VidCloud",
+      embedUrl: `https://vidcloud9.ru/embed/${clean}-episode-${episode}`,
       type: "iframe",
       quality: "HD",
     },
