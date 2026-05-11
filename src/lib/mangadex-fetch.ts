@@ -142,7 +142,6 @@ export async function getMangaDetails(mangaId: string): Promise<any> {
         averageScore
         startDate { year }
         format
-        authors { nodes { name } }
       }
     }
   `;
@@ -163,7 +162,6 @@ export async function getMangaDetails(mangaId: string): Promise<any> {
       rating: m.averageScore ? String(m.averageScore) : null,
       year: m.startDate?.year || null,
       chapters: m.chapters,
-      author: m.authors?.nodes?.[0]?.name || "Unknown",
     },
   };
 }

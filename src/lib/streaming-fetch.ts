@@ -1,5 +1,5 @@
 // Multi-API Streaming Fetcher for Movies & TV
-// Working sources: VidKing, 2Embed, VidSrc (PM)
+// Working sources: VidKing, 2Embed, VidSrc (PM), VidSrc (ME)
 
 interface StreamingAPIConfig {
   name: string;
@@ -23,6 +23,11 @@ const STREAMING_APIS: StreamingAPIConfig[] = [
     baseUrl: "https://vidsrc.pm",
     type: "vidsrcpm",
   },
+  {
+    name: "VidSrc (ME)",
+    baseUrl: "https://vidsrcme.ru",
+    type: "vidsrcme",
+  },
 ];
 
 // Build embed URL based on API type
@@ -41,6 +46,12 @@ function buildEmbedUrl(api: StreamingAPIConfig, type: "movie" | "tv", id: number
       return `${api.baseUrl}/embedtv/${id}/${season ?? 1}/${episode ?? 1}`;
     
     case "vidsrcpm":
+      if (type === "movie") {
+        return `${api.baseUrl}/embed/movie/${id}`;
+      }
+      return `${api.baseUrl}/embed/tv/${id}-${season ?? 1}-${episode ?? 1}`;
+    
+    case "vidsrcme":
       if (type === "movie") {
         return `${api.baseUrl}/embed/movie/${id}`;
       }

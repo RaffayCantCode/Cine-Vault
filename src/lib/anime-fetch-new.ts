@@ -1,0 +1,157 @@
+// AniPub API - Correct endpoints
+const ANIPUB_BASE = "https://anipub.xyz/api";
+
+function fixImageUrl(url?: string): string {
+  if (!url) return "";
+  if (url.startsWith("http")) return url;
+  return `https://anipub.xyz/${url}`;
+}
+
+// Get anime by genre - use action as default for browsing
+export async function getAnimeByGenre(genre: string = "action", page: number = 1): Promise<any> {
+  try {
+    const res = await fetch(`${ANIPUB_BASE}/findbyGenre/${genre}?Page=${page}`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) throw new Error(`Failed: ${res.status}`);
+    const data = await res.json();
+    
+    const animes = data.wholePage || data || [];
+    const items = animes.map((anime: any) => ({
+      id: String(anime._id || anime.Id),
+      name: anime.Name,
+      poster: fixImageUrl(anime.ImagePath || anime.Image),
+      type: "TV",
+      episodes: { sub: anime.epCount || anime.ep || null, dub: null },
+      rating: anime.MALScore || null,
+      description: anime.DescripTion || "",
+      genres: anime.Genres || [],
+      year: null,
+      status: anime.Status || "Finished",
+    }));
+    
+    return { success: true, data: items };
+  } catch (error) {
+    console.error("[AniPub] Failed to get anime by genre:", error);
+    throw error;
+  }
+}
+
+// Get top rated anime
+export async function getTopAnime(page: number = 1): Promise<any> {
+  try {
+    const res = await fetch(`${ANIPUB_BASE}/findbyrating?page=${page}`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) throw new Error(`Failed: ${res.status}`);
+    const data = await res.json();
+    
+    const animes = data.wholePage || data.AniData || data || [];
+    const items = animes.map((anime: any) => ({
+      id: String(anime._id || anime.Id),
+      name: anime.Name,
+      poster: fixImageUrl(anime.ImagePath || anime.Image),
+      type: "TV",
+      episodes: { sub: anime.epCount || anime.ep || null, dub: null },
+      rating: anime.MALScore || null,
+      description: anime.DescripTion || "",
+      genres: anime.Genres || [],
+      year: null,
+      status: anime.Status || "Finished",
+    }));
+    
+    return { success: true, data: items };
+  } catch (error) {
+    console.error("[AniPub] Failed to get top anime:", error);
+    throw error;
+  }
+}
+
+// Search anime
+export async function searchAnime(query: string, page: number = 1): Promise<any> {
+  try {
+    const res = await fetch(`${ANIPUB_BASE}/searchall/${encodeURIComponent(query)}?page=${page}`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) throw new Error(`Failed: ${res.status}`);
+    const data = await res.json();
+    
+    const animes = data.AniData || data.wholePage || data || [];
+    const items = animes.map((anime: any) => ({
+      id: String(anime._id || anime.Id),
+      name: anime.Name,
+      poster: fixImageUrl(anime.ImagePath || anime.Image),
+      type: "TV",
+      episodes: { sub: anime.epCount || anime.ep || null, dub: null },
+      rating: anime.MALScore || null,
+      description: anime.DescripTion || "",
+      genres: anime.Genres || [],
+      year: null,
+      status: anime.Status || "Finished",
+    }));
+    
+    return { success: true, data: items };
+  } catch (error) {
+    console.error("[AniPub] Failed to search anime:", error);
+    throw error;
+  }
+}
+
+// Get anime details
+export async function getAnimeDetails(animeId: string): Promise<any> {
+  try {
+    const res = await fetch(`${ANIPUB_BASE}/info/${animeId}`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) throw new Error(`Failed: ${res.status}`);
+    const data = await res.json();
+    
+    return {
+      success: true,
+      data: {
+        id: String(data._id),
+        name: data.Name,
+        poster: fixImageUrl(data.ImagePath) || fixImageUrl(data.Cover),
+        type: data.type || "TV",
+        episodes: { sub: data.epCount || null, dub: null },
+        rating: data.MALScore || null,
+        description: data.DescripTion || "",
+        genres: data.Genres || [],
+        year: null,
+        status: data.Status || "Finished",
+      },
+    };
+  } catch (error) {
+    console.error("[AniPub] Failed to get anime details:", error);
+    throw error;
+  }
+}
+
+// Get streaming links - returns iframe URLs directly
+export async function getStreamingLinks(animeId: string): Promise<any> {
+  try {
+    const res = await fetch(`${ANIPUB_BASE}/v1/api/details/${animeId}`, {
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) throw new Error(`Failed: ${res.status}`);
+    const data = await res.json();
+    
+    // Extract episode links - the API returns links with src= prefix
+    const episodes = (data.episodes || []).map((ep: any, index: number) => {
+      const link = ep.link || ep.src || "";
+      // Strip src= prefix if present
+      const src = link.replace(/^src=/, "").replace(/^"/, "").replace(/"$/, "");
+      return {
+        episodeId: String(index + 1),
+        episodeNum: index + 1,
+        title: ep.title || `Episode ${index + 1}`,
+        src: src,
+      };
+    });
+    
+    return { success: true, data: { episodes, totalEpisodes: episodes.length } };
+  } catch (error) {
+    console.error("[AniPub] Failed to get streaming links:", error);
+    throw error;
+  }
+}

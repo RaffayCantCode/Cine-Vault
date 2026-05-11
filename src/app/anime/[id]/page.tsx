@@ -31,7 +31,13 @@ interface Episode {
   episodeId: string;
   episodeNum: number;
   title?: string;
+  src?: string;
   isFiller?: boolean;
+}
+
+interface EpisodeSource {
+  src: string;
+  name: string;
 }
 
 
@@ -41,6 +47,7 @@ export default function AnimeDetailPage() {
 
   const [anime, setAnime] = useState<AnimeDetail | null>(null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
+  const [episodeSources, setEpisodeSources] = useState<EpisodeSource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [episodesLoading, setEpisodesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +87,16 @@ export default function AnimeDetailPage() {
         );
         if (data.success && data.data?.episodes) {
           setEpisodes(data.data.episodes);
+          // Extract sources from episodes if available
+          const sources = data.data.episodes
+            .filter((ep: Episode) => ep.src)
+            .map((ep: Episode, idx: number) => ({
+              src: ep.src || "",
+              name: `Server ${idx + 1}`
+            }));
+          if (sources.length > 0) {
+            setEpisodeSources(sources);
+          }
           if (data.data.episodes.length > 0) {
             setSelectedEp(data.data.episodes[0]);
           }
@@ -257,6 +274,7 @@ export default function AnimeDetailPage() {
                       animeId={id}
                       animeTitle={anime.name}
                       episode={selectedEp.episodeNum}
+                      episodeSources={episodeSources}
                     />
                   </motion.div>
                 )}

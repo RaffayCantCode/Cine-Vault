@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import * as Jikan from "@/lib/jikan-fetch";
+import * as AniPub from "@/lib/anime-fetch-new";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -9,30 +9,8 @@ export async function GET(request: NextRequest) {
   try {
     let data: any;
 
-    if (category === "home" || category === "spotlight") {
-      const [topData, airingData] = await Promise.all([
-        Jikan.getTopAnime(page, 12),
-        Jikan.getCurrentlyAiring(page, 12),
-      ]);
-
-      const topAnimes = topData.data || [];
-      const airingAnimes = airingData.data || [];
-
-      const shuffled = [...topAnimes, ...airingAnimes].sort(() => Math.random() - 0.5);
-      const uniqueMap = new Map();
-      shuffled.forEach((a: any) => uniqueMap.set(a.id, a));
-      const uniqueAnimes = Array.from(uniqueMap.values());
-
-      return Response.json({
-        success: true,
-        data: {
-          spotlightAnimes: uniqueAnimes.slice(0, 6),
-          latestEpisodeAnimes: uniqueAnimes.slice(6, 12),
-          newReleases: uniqueAnimes.slice(12, 18),
-        },
-      });
-    } else if (category === "new-releases" || category === "latest") {
-      data = await Jikan.getCurrentlyAiring(page, 18);
+    if (category === "home" || category === "spotlight" || category === "popular") {
+      data = await AniPub.getTopAnime();
       const animes = data.data || [];
       return Response.json({
         success: true,
@@ -42,8 +20,8 @@ export async function GET(request: NextRequest) {
           newReleases: animes.slice(12, 18),
         },
       });
-    } else if (category === "popular") {
-      data = await Jikan.getTopAnime(page, 18);
+    } else if (category === "new-releases" || category === "latest") {
+      data = await AniPub.getTopAnime();
       const animes = data.data || [];
       return Response.json({
         success: true,
@@ -55,7 +33,7 @@ export async function GET(request: NextRequest) {
       });
     } else if (category === "search") {
       const query = searchParams.get("q") || "";
-      data = await Jikan.searchAnime(query, page, 18);
+      data = await AniPub.searchAnime(query);
       const animes = data.data || [];
       return Response.json({
         success: true,
@@ -66,7 +44,7 @@ export async function GET(request: NextRequest) {
         },
       });
     } else {
-      data = await Jikan.getTopAnime(page, 18);
+      data = await AniPub.getTopAnime();
       const animes = data.data || [];
       return Response.json({
         success: true,

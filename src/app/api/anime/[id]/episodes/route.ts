@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
-import { fetchAnimeApi } from "@/lib/anime-fetch";
-import * as Jikan from "@/lib/jikan-fetch";
+import * as AniPub from "@/lib/anime-fetch-new";
 
 export async function GET(
   _request: NextRequest,
@@ -9,49 +8,38 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const malId = parseInt(id, 10);
+    // Get streaming links from AniPub which includes episode info
+    const links = await AniPub.getStreamingLinks(id);
     
-    if (!isNaN(malId)) {
-      // Get list from Anikoto and find by MAL ID
-      try {
-        const anikotoList = await fetchAnimeApi(`/home`);
-        const animes = anikotoList.data || [];
-        const match = animes.find((a: any) => a.mal_id === String(malId) || a.mal_id === malId);
-        
-        if (match) {
-          const seriesData = await fetchAnimeApi(`/series/${match.id}`);
-          return Response.json({
-            success: true,
-            data: {
-              episodes: seriesData.data?.episodes || [],
-              totalEpisodes: seriesData.data?.totalEpisodes || 0,
-            },
-          });
-        }
-      } catch (e) {
-        console.warn("[Anikoto] Could not find episodes");
-      }
-      
-      // Fallback to Jikan
-      const jikanData = await Jikan.getAnimeDetails(malId);
-      if (jikanData.success && jikanData.data) {
-        const totalEps = jikanData.data.episodes?.sub || 0;
-        const episodes = [];
-        for (let i = 1; i <= Math.min(totalEps, 100); i++) {
-          episodes.push({ episodeId: `${id}-${i}`, episodeNum: i, title: `Episode ${i}` });
-        }
-        return Response.json({ success: true, data: { episodes, totalEpisodes: totalEps } });
-      }
+    if (links.success && links.data?.episodes?.length > 0) {
+      return Response.json({
+        success: true,
+        data: {
+          episodes: links.data.episodes,
+          totalEpisodes: links.data.totalEpisodes,
+        },
+      });
     }
     
-    // Direct Anikoto ID
-    const data = await fetchAnimeApi(`/series/${id}`);
-    return Response.json({
-      success: true,
-      data: {
-        episodes: data.data?.episodes || [],
-        totalEpisodes: data.data?.totalEpisodes || 0,
-      },
+    // If no streaming links, try to get details for episode count
+    const details = await AniPub.getAnimeDetails(id);
+    const totalEps = details.data?.episodes?.sub || 0;
+    
+    // Generate placeholder episodes if we have count
+    if (totalEps > 0) {
+      const episodes = [];
+      for (let i = 1; i <= Math.min(totalEps, 100); i++) {
+        episodes.push({ episodeId: `${id}-${i}`, episodeNum: i, title: `Episode ${i}` });
+      }
+      return Response.json({ success: true, data: { episodes, totalEpisodes: totalEps } });
+    }
+    
+    return Response.json({ 
+      success: true, 
+      data: { 
+        episodes: [{ episodeId: "1", episodeNum: 1, title: "Episode 1" }],
+        totalEpisodes: 1 
+      } 
     });
     
   } catch (error) {

@@ -3,28 +3,52 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { AlertCircle, Check, Server } from "lucide-react";
-import { AnimeEmbedSource, getAllAnimeSources } from "@/lib/anime-embed";
+
+interface EpisodeSource {
+  src: string;
+  name: string;
+}
+
+interface FallbackSource {
+  name: string;
+  embedUrl: string;
+  type: "iframe";
+  quality: "HD";
+}
+
+function getFallbackSources(title: string, ep: number): FallbackSource[] {
+  const clean = title.toLowerCase().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-").trim();
+  return [
+    { name: "VidPlay", embedUrl: `https://vidplay.site/embed/${clean}-episode-${ep}`, type: "iframe", quality: "HD" },
+    { name: "StreamSB", embedUrl: `https://streamsb.net/embed/${clean}-episode-${ep}`, type: "iframe", quality: "HD" },
+    { name: "Filemoon", embedUrl: `https://filemoon.top/e/${clean}-episode-${ep}`, type: "iframe", quality: "HD" },
+  ];
+}
 
 interface AnimePlayerProps {
   animeId: string;
   animeTitle: string;
   episode: number;
+  episodeSources?: EpisodeSource[];
 }
 
-export function AnimePlayer({ animeId, animeTitle, episode }: AnimePlayerProps) {
-  const sources = getAllAnimeSources(animeTitle, episode);
-  const [currentSource, setCurrentSource] = useState<AnimeEmbedSource>(sources[0]);
+export function AnimePlayer({ animeId, animeTitle, episode, episodeSources }: AnimePlayerProps) {
+  // Use AniPub sources if available, otherwise fallback to generic embeds
+  const sources = episodeSources?.length 
+    ? episodeSources.map((s, i) => ({ name: s.name || `Server ${i+1}`, embedUrl: s.src, type: "iframe" as const, quality: "HD" as const }))
+    : getFallbackSources(animeTitle, episode);
+  
+  const [currentSource, setCurrentSource] = useState(sources[0]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const handleSourceChange = (source: AnimeEmbedSource) => {
+  const handleSourceChange = (source: typeof sources[0]) => {
     setCurrentSource(source);
     setError(null);
     setIsLoading(true);
   };
 
   const handleIframeError = () => {
-    // Try next source
     const currentIndex = sources.findIndex((s) => s.name === currentSource.name);
     const nextSource = sources[currentIndex + 1];
 
@@ -105,7 +129,6 @@ export function AnimePlayer({ animeId, animeTitle, episode }: AnimePlayerProps) 
               className="w-full h-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture"
               allowFullScreen
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-storage-access-by-user-activation allow-top-navigation"
               title={`${animeTitle} - Episode ${episode}`}
               onLoad={() => setIsLoading(false)}
               onError={handleIframeError}
