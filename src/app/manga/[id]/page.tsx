@@ -178,7 +178,7 @@ export default function MangaDetailPage() {
     <div className="min-h-screen bg-background text-foreground pb-20">
       <Sidebar />
 
-      <main className="md:pl-56 lg:pl-64 pt-6">
+      <main className="md:pl-56 lg:pl-64 pt-0">
         {isLoading ? (
           <div className="px-6 md:px-12 max-w-screen-2xl mx-auto">
             <div className="w-full h-[60vh] rounded-2xl bg-muted/50 animate-pulse" />

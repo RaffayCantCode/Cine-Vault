@@ -1,65 +1,42 @@
 // Multi-API Streaming Fetcher for Movies & TV
-// Sources tested and working
+// Sources from vidsrc.domains
 
 interface StreamingAPIConfig {
   name: string;
   baseUrl: string;
-  type: "2embed" | "vidsrcembed" | "vidking" | "vidsrcin";
+  type: string;
 }
 
 const STREAMING_APIS: StreamingAPIConfig[] = [
   {
-    name: "2Embed",
-    baseUrl: "https://www.2embed.cc",
-    type: "2embed",
+    name: "VidSrc (PM)",
+    baseUrl: "https://vidsrc.pm",
+    type: "vidsrcpm",
   },
   {
-    name: "VidSrc",
-    baseUrl: "https://vidsrc-embed.ru",
-    type: "vidsrcembed",
+    name: "VidSrc (EU)",
+    baseUrl: "https://vidsrc.eu",
+    type: "vidsrceu",
   },
   {
-    name: "VidKing",
-    baseUrl: "https://www.vidking.net",
-    type: "vidking",
+    name: "VidSrc (ME)",
+    baseUrl: "https://vidsrc.me",
+    type: "vidsrcme",
   },
   {
-    name: "VidSrc.in",
-    baseUrl: "https://vidsrc.in",
-    type: "vidsrcin",
+    name: "VidSrc (TV)",
+    baseUrl: "https://vidsrc.tv",
+    type: "vidsrctv",
   },
 ];
 
 // Build embed URL based on API type
 function buildEmbedUrl(api: StreamingAPIConfig, type: "movie" | "tv", id: number, season?: number, episode?: number): string {
-  switch (api.type) {
-    case "2embed":
-      if (type === "movie") {
-        return `${api.baseUrl}/embed/${id}`;
-      }
-      return `${api.baseUrl}/embedtv/${id}/${season ?? 1}/${episode ?? 1}`;
-    
-    case "vidsrcembed":
-      if (type === "movie") {
-        return `${api.baseUrl}/embed/movie/${id}`;
-      }
-      return `${api.baseUrl}/embed/tv/${id}/${season ?? 1}/${episode ?? 1}`;
-    
-    case "vidking":
-      if (type === "movie") {
-        return `${api.baseUrl}/embed/movie/${id}`;
-      }
-      return `${api.baseUrl}/embed/tv/${id}/${season ?? 1}/${episode ?? 1}`;
-    
-    case "vidsrcin":
-      if (type === "movie") {
-        return `${api.baseUrl}/embed/movie/${id}`;
-      }
-      return `${api.baseUrl}/embed/tv/${id}/${season ?? 1}/${episode ?? 1}`;
-    
-    default:
-      return "";
+  // Use TMDB ID for vidsrc domains
+  if (type === "movie") {
+    return `${api.baseUrl}/embed/movie/${id}`;
   }
+  return `${api.baseUrl}/embed/tv/${id}-${season ?? 1}-${episode ?? 1}`;
 }
 
 export interface StreamingSource {
