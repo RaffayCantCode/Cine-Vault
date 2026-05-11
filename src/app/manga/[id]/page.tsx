@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { fetchJson } from "@/lib/utils";
-import { BookOpen, Star, ArrowLeft, Clock, ChevronLeft, ChevronRight, Maximize2, Minimize2, Settings, ZoomIn, ZoomOut } from "lucide-react";
+import { BookOpen, Star, ArrowLeft, Clock, ChevronLeft, ChevronRight, Maximize2, Minimize2, ZoomIn, ZoomOut, Database, Globe } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+type MangaSource = "mangadex" | "weebcentral";
 
 interface MangaDetail {
   id: string;
@@ -24,6 +26,7 @@ interface MangaDetail {
   tags?: string[];
   lastChapter?: string | null;
   originalLanguage?: string;
+  url?: string;
 }
 
 interface Chapter {
@@ -31,6 +34,9 @@ interface Chapter {
   number: number;
   title: string;
   read: boolean;
+  volume?: string | null;
+  publishedAt?: string | null;
+  scanlationGroup?: string;
 }
 
 interface ChapterPage {
@@ -38,6 +44,7 @@ interface ChapterPage {
   pages: string[];
   baseUrl?: string;
   hash?: string;
+  quality?: string;
 }
 
 type ReadDirection = "horizontal" | "vertical";
@@ -45,7 +52,9 @@ type ZoomLevel = number;
 
 export default function MangaDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params?.id as string;
+  const source = (searchParams.get("source") || "mangadex") as MangaSource;
 
   const [manga, setManga] = useState<MangaDetail | null>(null);
   const [chapters, setChapters] = useState<Chapter[]>([]);
@@ -71,11 +80,15 @@ export default function MangaDetailPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const data = await fetchJson<{ success: boolean; data: MangaDetail }>(
-          `/api/manga/${id}`
+        const data = await fetchJson<{ success: boolean; data: { manga: MangaDetail; chapters: Chapter[] } }>(
+          `/api/manga/${id}/chapters?source=${source}`
         );
-        if (data.success && data.data) {
-          setManga(data.data);
+        if (data.success && data.data?.manga) {
+          setManga(data.data.manga);
+          if (data.data.chapters && data.data.chapters.length > 0) {
+            setChapters(data.data.chapters);
+            setSelectedChapter(data.data.chapters[0]);
+          }
         } else {
           throw new Error("Manga not found");
         }
@@ -83,10 +96,11 @@ export default function MangaDetailPage() {
         setError(e instanceof Error ? e.message : "Failed to load manga");
       } finally {
         setIsLoading(false);
+        setChaptersLoading(false);
       }
     };
     load();
-  }, [id]);
+  }, [id, source]);
 
   const loadChapter = useCallback(async (chapter: Chapter) => {
     setChapterLoading(true);
@@ -94,43 +108,19 @@ export default function MangaDetailPage() {
     setCurrentPage(0);
     try {
       const data = await fetchJson<{ success: boolean; data: ChapterPage; error?: string }>(
-        `/api/manga/chapter/${chapter.id}`
+        `/api/manga/chapter/${chapter.id}?source=${source}`
       );
-      if (data.success && data.data?.pages) {
+      if (data.success && data.data?.pages && data.data.pages.length > 0) {
         setChapterData(data.data);
       } else {
-        throw new Error(data.error || "Failed to load chapter");
+        throw new Error(data.error || "Failed to load chapter - no pages found");
       }
     } catch {
       setChapterData(null);
     } finally {
       setChapterLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    if (!id) return;
-    const loadChapters = async () => {
-      setChaptersLoading(true);
-      try {
-        const data = await fetchJson<{
-          success: boolean;
-          data: { chapters: Chapter[]; totalChapters: number; manga: MangaDetail };
-        }>(`/api/manga/${id}/chapters`);
-        if (data.success && data.data?.chapters) {
-          setChapters(data.data.chapters);
-          if (data.data.chapters.length > 0) {
-            setSelectedChapter(data.data.chapters[0]);
-          }
-        }
-      } catch {
-        // Chapters failed silently
-      } finally {
-        setChaptersLoading(false);
-      }
-    };
-    loadChapters();
-  }, [id]);
+  }, [source]);
 
   useEffect(() => {
     if (selectedChapter && readMode) {
@@ -273,16 +263,16 @@ export default function MangaDetailPage() {
                 </button>
 
                 <select
-                  value={selectedChapter.number}
+                  value={selectedChapter.id}
                   onChange={(e) => {
-                    const ch = chapters.find((c) => c.number === parseFloat(e.target.value));
+                    const ch = chapters.find((c) => c.id === e.target.value);
                     if (ch) handleChapterSelect(ch);
                   }}
-                  className="h-9 px-3 rounded-lg bg-white/10 border border-white/10 text-white text-sm font-medium outline-none cursor-pointer"
+                  className="h-9 px-3 rounded-lg bg-white/10 border border-white/10 text-white text-sm font-medium outline-none cursor-pointer min-w-[200px]"
                 >
                   {chapters.map((ch) => (
-                    <option key={ch.id} value={ch.number} className="bg-zinc-900">
-                      Ch. {ch.number} {ch.title !== `Chapter ${ch.number}` ? `- ${ch.title}` : ""}
+                    <option key={ch.id} value={ch.id} className="bg-zinc-900">
+                      Ch. {ch.number} - {ch.title || "No Title"}
                     </option>
                   ))}
                 </select>
@@ -348,6 +338,7 @@ export default function MangaDetailPage() {
           <div className="flex flex-col items-center justify-center h-full pt-24 gap-4">
             <div className="text-4xl">📖</div>
             <p className="text-white/60 text-sm">Failed to load chapter pages.</p>
+            <p className="text-white/30 text-xs">Source: {source}</p>
             <button
               onClick={() => loadChapter(selectedChapter)}
               className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-bold hover:bg-amber-500 transition"
@@ -374,7 +365,12 @@ export default function MangaDetailPage() {
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center">
               <div className="text-2xl mb-2">😔</div>
               <div className="text-lg font-bold text-white mb-1">Couldn&apos;t load manga</div>
-              <div className="text-sm text-white/50">{error}</div>
+              <div className="text-sm text-white/50 mb-4">{error}</div>
+              <div className="flex gap-2 justify-center">
+                <span className={`px-3 py-1.5 rounded-lg text-xs font-bold ${source === "mangadex" ? "bg-violet-600 text-white" : "bg-emerald-600 text-white"}`}>
+                  {source === "mangadex" ? "MangaDex" : "WeebCentral"}
+                </span>
+              </div>
             </div>
           </div>
         ) : manga ? (
@@ -408,14 +404,9 @@ export default function MangaDetailPage() {
                   className="flex flex-col gap-3 max-w-2xl"
                 >
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="bg-amber-600/90 text-white text-[10px] font-extrabold tracking-widest px-2.5 py-1 rounded-full uppercase">
-                      📚 {manga.originalLanguage === "ja" ? "Manga" : manga.originalLanguage === "ko" ? "Manhwa" : "Comic"}
+                    <span className={`${source === "mangadex" ? "bg-violet-600" : "bg-emerald-600"}/90 text-white text-[10px] font-extrabold tracking-widest px-2.5 py-1 rounded-full uppercase`}>
+                      📚 {manga.type || (source === "weebcentral" ? "Manhwa" : "Manga")}
                     </span>
-                    {manga.type && (
-                      <span className="bg-white/10 text-white/70 text-[10px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase">
-                        {manga.type}
-                      </span>
-                    )}
                     {manga.status && (
                       <span className="bg-white/10 text-white/70 text-[10px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase">
                         {manga.status}
@@ -428,12 +419,6 @@ export default function MangaDetailPage() {
                   </h1>
 
                   <div className="flex items-center gap-4 flex-wrap text-xs text-white/50">
-                    {manga.rating && (
-                      <span className="flex items-center gap-1 text-amber-400 font-bold">
-                        <Star className="w-3.5 h-3.5 fill-current" />
-                        {manga.rating}
-                      </span>
-                    )}
                     {chapters.length > 0 && (
                       <span className="flex items-center gap-1">
                         <BookOpen className="w-3.5 h-3.5" />
@@ -470,13 +455,19 @@ export default function MangaDetailPage() {
             </div>
 
             <div className="px-5 md:px-12 max-w-screen-2xl mx-auto mt-6 space-y-8">
-              <Link
-                href="/manga"
-                className="inline-flex items-center gap-2 text-sm text-white/40 hover:text-white transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back to Manga
-              </Link>
+              <div className="flex items-center justify-between">
+                <Link
+                  href="/manga"
+                  className="inline-flex items-center gap-2 text-sm text-white/40 hover:text-white transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Manga
+                </Link>
+                <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${source === "mangadex" ? "bg-violet-600/20 text-violet-400" : "bg-emerald-600/20 text-emerald-400"}`}>
+                  {source === "mangadex" ? <Database className="w-3.5 h-3.5" /> : <Globe className="w-3.5 h-3.5" />}
+                  {source === "mangadex" ? "MangaDex" : "WeebCentral"}
+                </span>
+              </div>
 
               {!chaptersLoading && chapters.length > 0 && selectedChapter && (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -489,16 +480,16 @@ export default function MangaDetailPage() {
                   </button>
 
                   <select
-                    value={selectedChapter.number}
+                    value={selectedChapter.id}
                     onChange={(e) => {
-                      const chapter = chapters.find((c) => c.number === parseFloat(e.target.value));
+                      const chapter = chapters.find((c) => c.id === e.target.value);
                       if (chapter) setSelectedChapter(chapter);
                     }}
-                    className="h-12 px-4 rounded-xl bg-white/[0.05] border border-white/10 text-white text-sm font-semibold outline-none cursor-pointer"
+                    className="h-12 px-4 rounded-xl bg-white/[0.05] border border-white/10 text-white text-sm font-semibold outline-none cursor-pointer min-w-[200px]"
                   >
                     {chapters.map((ch) => (
-                      <option key={ch.id} value={ch.number} className="bg-zinc-900">
-                        Chapter {ch.number} {ch.read && "✓"}
+                      <option key={ch.id} value={ch.id} className="bg-zinc-900">
+                        Ch.{ch.number} - {ch.title || "No Title"}
                       </option>
                     ))}
                   </select>
@@ -523,7 +514,7 @@ export default function MangaDetailPage() {
                     <h2 className="text-lg font-bold text-white">Chapters</h2>
                     <span className="text-sm text-white/40">{chapters.length} chapters</span>
                   </div>
-                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2">
+                  <div className="space-y-2">
                     {chapters.map((ch) => (
                       <button
                         key={ch.id}
@@ -531,13 +522,28 @@ export default function MangaDetailPage() {
                           setSelectedChapter(ch);
                           setReadMode(true);
                         }}
-                        className={`aspect-square rounded-lg text-sm font-bold transition-all duration-200 flex flex-col items-center justify-center gap-0.5 ${
+                        className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-200 flex items-center gap-4 ${
                           selectedChapter?.id === ch.id
-                            ? "bg-amber-600 text-white shadow-lg shadow-amber-500/30 scale-105"
-                            : "bg-white/[0.05] text-white/60 hover:bg-white/[0.09] hover:text-white"
+                            ? "bg-amber-600 text-white"
+                            : "bg-white/[0.05] text-white/70 hover:bg-white/[0.09] hover:text-white"
                         }`}
                       >
-                        <span>{ch.number}</span>
+                        <span className="font-bold text-sm w-16 shrink-0">Ch. {ch.number}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate ${selectedChapter?.id === ch.id ? "text-white" : "text-white/70"}`}>
+                            {ch.title || "No Title"}
+                          </p>
+                          {ch.scanlationGroup && ch.scanlationGroup !== "Unknown" && (
+                            <p className={`text-xs mt-0.5 truncate ${selectedChapter?.id === ch.id ? "text-amber-200" : "text-white/40"}`}>
+                              {ch.scanlationGroup}
+                            </p>
+                          )}
+                        </div>
+                        {ch.volume && (
+                          <span className={`text-xs shrink-0 ${selectedChapter?.id === ch.id ? "text-amber-200" : "text-white/30"}`}>
+                            Vol.{ch.volume}
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -548,7 +554,7 @@ export default function MangaDetailPage() {
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-8 text-center">
                   <div className="text-2xl mb-2">📖</div>
                   <div className="text-lg font-bold text-white mb-1">No chapters available</div>
-                  <div className="text-sm text-white/50">This manga may not have any translated chapters yet.</div>
+                  <div className="text-sm text-white/50">This manga may not have any translated chapters yet on {source === "mangadex" ? "MangaDex" : "WeebCentral"}.</div>
                 </div>
               )}
             </div>

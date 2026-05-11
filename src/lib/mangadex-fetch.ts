@@ -5,36 +5,49 @@ function pickTitle(attributes: any): string {
   if (en) return en;
   const ja = attributes?.title?.ja;
   if (ja) return ja;
+  const jaRo = attributes?.title?.["ja-ro"];
+  if (jaRo) return jaRo;
   const values = Object.values(attributes?.title || {}) as string[];
   return values[0] || "Untitled";
 }
 
 function mapManga(item: any) {
   const attrs = item.attributes || {};
-  const coverRel = (item.relationships || []).find((r: any) => r.type === "cover_art");
-  const fileName = coverRel?.attributes?.fileName;
-  const cover = fileName
-    ? `https://uploads.mangadex.org/covers/${item.id}/${fileName}.512.jpg`
-    : "";
 
-  const authorRel = item.relationships?.find((r: any) => r.type === "author" || r.type === "artist");
+  let coverUrl = "";
+  const coverRel = (item.relationships || []).find((r: any) => r.type === "cover_art");
+  if (coverRel?.attributes?.fileName) {
+    const fileName = coverRel.attributes.fileName;
+    coverUrl = `https://uploads.mangadex.org/covers/${item.id}/${fileName}.512.jpg`;
+  }
+
+  const authorRel = item.relationships?.find((r: any) => r.type === "author");
   const authorName = authorRel?.attributes?.name || "";
+  const artistRel = item.relationships?.find((r: any) => r.type === "artist");
+  const artistName = artistRel?.attributes?.name || "";
 
   const tags = (attrs.tags || []).map((t: any) => t.attributes?.name?.en).filter(Boolean);
+
+  const origLang = attrs.originalLanguage || "ja";
+  let contentType = "Manga";
+  if (origLang === "ko") contentType = "Manhwa";
+  else if (origLang === "zh") contentType = "Manhua";
 
   return {
     id: item.id,
     name: pickTitle(attrs),
-    poster: cover,
+    poster: coverUrl,
     description: attrs.description?.en || attrs.description?.ja || "",
-    type: attrs.originalLanguage === "ja" ? "Manga" : "Manhwa",
+    type: contentType,
     genres: tags,
     year: attrs.year || null,
     author: authorName,
+    artist: artistName !== authorName ? artistName : "",
     status: attrs.status || "",
     tags,
     lastChapter: attrs.lastChapter || null,
-    originalLanguage: attrs.originalLanguage || "ja",
+    originalLanguage: origLang,
+    tagsFormatted: tags.slice(0, 8),
   };
 }
 
@@ -100,5 +113,54 @@ export async function getMangaDetails(mangaId: string): Promise<any> {
   return {
     success: true,
     data: mapped,
+  };
+}
+
+export async function getChapterDetails(chapterId: string): Promise<any> {
+  const res = await fetch(
+    `${MANGADEX_API}/chapter/${chapterId}?includes[]=scanlation_group&includes[]=manga`,
+    { next: { revalidate: 60 } }
+  );
+  if (!res.ok) throw new Error(`MangaDex chapter details failed: ${res.status}`);
+  const payload = await res.json();
+  return { success: true, data: payload.data };
+}
+
+export async function getChapterPages(chapterId: string): Promise<any> {
+  const res = await fetch(`${MANGADEX_API}/at-home/server/${chapterId}`, {
+    headers: { "Content-Type": "application/json" },
+    next: { revalidate: 60 },
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error(`MangaDex at-home failed (${res.status}):`, errorText);
+    throw new Error(`MangaDex at-home failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  const baseUrl = data.baseUrl;
+  const hash = data.chapter?.hash;
+
+  let files = data.chapter?.data || [];
+  const useDataSaver = files.length === 0;
+  if (useDataSaver) files = data.chapter?.dataSaver || [];
+
+  if (!baseUrl || !hash || files.length === 0) {
+    throw new Error("No readable pages found for this chapter");
+  }
+
+  const qualityDir = useDataSaver ? "data-saver" : "data";
+  const pages = files.map((file: string) => `${baseUrl}/${qualityDir}/${hash}/${file}`);
+
+  return {
+    success: true,
+    data: {
+      chapterId,
+      pages,
+      baseUrl,
+      hash,
+      quality: useDataSaver ? "data-saver" : "data",
+    },
   };
 }

@@ -5,6 +5,9 @@ import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { fetchJson, shuffleArray } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { Globe, Database } from "lucide-react";
+
+type MangaSource = "mangadex" | "weebcentral";
 
 interface MangaItem {
   id: string;
@@ -14,6 +17,7 @@ interface MangaItem {
   genres?: string[];
   year?: number;
   author?: string;
+  url?: string;
 }
 
 export default function MangaBrowsePage() {
@@ -25,6 +29,7 @@ export default function MangaBrowsePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [source, setSource] = useState<MangaSource>("mangadex");
 
   const loadManga = useCallback(async (pageNum: number, append: boolean = false) => {
     if (append) {
@@ -38,7 +43,8 @@ export default function MangaBrowsePage() {
       const data = await fetchJson<{
         success: boolean;
         data: MangaItem[];
-      }>(`/api/manga?category=${activeTab}&page=${pageNum}`);
+        source: string;
+      }>(`/api/manga?category=${activeTab}&page=${pageNum}&source=${source}`);
 
       if (data.success && data.data) {
         if (append) {
@@ -57,11 +63,11 @@ export default function MangaBrowsePage() {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [activeTab]);
+  }, [activeTab, source]);
 
   useEffect(() => {
     loadManga(1, false);
-  }, [activeTab, loadManga]);
+  }, [activeTab, source, loadManga]);
 
   const handleLoadMore = () => {
     loadManga(page + 1, true);
@@ -73,7 +79,7 @@ export default function MangaBrowsePage() {
     setError(null);
     try {
       const data = await fetchJson<{ success: boolean; data: MangaItem[] }>(
-        `/api/manga?category=search&q=${encodeURIComponent(searchQuery)}`
+        `/api/manga?category=search&q=${encodeURIComponent(searchQuery)}&source=${source}`
       );
       if (data.success) {
         setMangas(data.data || []);
@@ -92,7 +98,6 @@ export default function MangaBrowsePage() {
 
       <main className="md:pl-56 lg:pl-64 pt-0">
         <div className="px-6 md:px-12 max-w-screen-2xl mx-auto">
-          {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
             <div>
               <div className="flex items-center gap-3 mb-2">
@@ -124,8 +129,7 @@ export default function MangaBrowsePage() {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex items-center gap-2 mb-8">
+          <div className="flex items-center gap-2 mb-8 flex-wrap">
             {(["popular", "latest"] as const).map((tab) => (
               <button
                 key={tab}
@@ -139,9 +143,35 @@ export default function MangaBrowsePage() {
                 {tab === "popular" ? "🔥 Popular" : "🆕 Latest"}
               </button>
             ))}
+
+            <div className="w-px h-6 bg-white/10 mx-2" />
+
+            <div className="flex items-center gap-1 bg-white/[0.05] rounded-xl p-1">
+              <button
+                onClick={() => setSource("mangadex")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  source === "mangadex"
+                    ? "bg-violet-600 text-white"
+                    : "text-white/50 hover:text-white"
+                }`}
+              >
+                <Database className="w-3.5 h-3.5" />
+                MangaDex
+              </button>
+              <button
+                onClick={() => setSource("weebcentral")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  source === "weebcentral"
+                    ? "bg-emerald-600 text-white"
+                    : "text-white/50 hover:text-white"
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                WeebCentral
+              </button>
+            </div>
           </div>
 
-          {/* Content */}
           {isLoading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
               {Array.from({ length: 18 }).map((_, i) => (
@@ -151,13 +181,24 @@ export default function MangaBrowsePage() {
           ) : error ? (
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-white/80">
               <div className="text-lg font-bold text-white mb-1">Couldn&apos;t load manga</div>
-              <div className="text-sm text-white/50">{error}</div>
+              <div className="text-sm text-white/50 mb-4">{error}</div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSource(source === "mangadex" ? "weebcentral" : "mangadex")}
+                  className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-bold hover:bg-amber-500 transition"
+                >
+                  Try {source === "mangadex" ? "WeebCentral" : "MangaDex"}
+                </button>
+                <button onClick={() => loadManga(1, false)} className="px-4 py-2 bg-white/10 text-white/70 rounded-lg text-sm font-bold hover:bg-white/20 transition">
+                  Retry
+                </button>
+              </div>
             </div>
           ) : (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                 {mangas.map((manga, i) => (
-                  <MangaCard key={`${manga.id}-${i}`} item={manga} index={i} />
+                  <MangaCard key={`${manga.id}-${i}`} item={manga} index={i} source={source} />
                 ))}
               </div>
 
@@ -180,7 +221,7 @@ export default function MangaBrowsePage() {
   );
 }
 
-function MangaCard({ item, index }: { item: MangaItem; index: number }) {
+function MangaCard({ item, index, source }: { item: MangaItem; index: number; source: string }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -188,7 +229,7 @@ function MangaCard({ item, index }: { item: MangaItem; index: number }) {
       transition={{ delay: index * 0.03, duration: 0.35 }}
     >
       <Link
-        href={`/manga/${item.id}`}
+        href={`/manga/${item.id}?source=${source}`}
         className="group relative block aspect-[2/3] w-full shrink-0 overflow-hidden rounded-xl bg-muted transition-all duration-300 hover:scale-[1.06] hover:z-10"
         style={{ transformOrigin: "center bottom" }}
       >
@@ -209,8 +250,8 @@ function MangaCard({ item, index }: { item: MangaItem; index: number }) {
         )}
 
         <div className="absolute top-2 left-2 z-20">
-          <span className="bg-amber-600/90 backdrop-blur-sm text-white text-[9px] font-extrabold tracking-widest px-1.5 py-0.5 rounded-md uppercase">
-            📚 Manga
+          <span className={`${source === "mangadex" ? "bg-violet-600" : "bg-emerald-600"}/90 backdrop-blur-sm text-white text-[9px] font-extrabold tracking-widest px-1.5 py-0.5 rounded-md uppercase`}>
+            📚 {item.type || "Manga"}
           </span>
         </div>
 
@@ -225,10 +266,8 @@ function MangaCard({ item, index }: { item: MangaItem; index: number }) {
               </p>
             )}
             <div className="flex items-center gap-2 flex-wrap">
-              {item.type && (
-                <span className="text-amber-400 text-[9px] font-bold uppercase tracking-wider">
-                  {item.type}
-                </span>
+              {item.year && (
+                <span className="text-white/40 text-[9px]">{item.year}</span>
               )}
             </div>
           </div>

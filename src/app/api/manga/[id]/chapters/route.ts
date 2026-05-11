@@ -1,19 +1,36 @@
 import { NextRequest } from "next/server";
 import * as MangaDex from "@/lib/mangadex-fetch";
-
-const MANGADEX_API = "https://api.mangadex.org";
+import * as WeebCentral from "@/lib/weebcentral-fetch";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const url = new URL(_request.url);
+  const source = url.searchParams.get("source") || "mangadex";
 
   try {
+    if (source === "weebcentral") {
+      const [wcDetails, wcChapters] = await Promise.all([
+        WeebCentral.getWCMangaDetails(id),
+        WeebCentral.getWCChapters(id),
+      ]);
+
+      return Response.json({
+        success: wcDetails.success && wcChapters.success,
+        data: {
+          chapters: wcChapters.data.chapters,
+          totalChapters: wcChapters.data.totalChapters,
+          manga: wcDetails.data,
+        },
+      });
+    }
+
     const [mangaDetails, chaptersRes] = await Promise.all([
       MangaDex.getMangaDetails(id),
       fetch(
-        `${MANGADEX_API}/manga/${id}/feed?translatedLanguage[]=en&order[chapter]=desc&limit=200`,
+        `https://api.mangadex.org/manga/${id}/feed?translatedLanguage[]=en&order[chapter]=desc&limit=500&includeEmptyPages=false`,
         { next: { revalidate: 300 } }
       ),
     ]);
@@ -23,22 +40,26 @@ export async function GET(
     }
 
     const chapterPayload = await chaptersRes.json();
-    const unique = new Map<string, any>();
+    const seen = new Map<string, any>();
 
-    for (const chapter of chapterPayload.data || []) {
-      const number = chapter?.attributes?.chapter;
-      if (!number) continue;
-      if (!unique.has(number)) unique.set(number, chapter);
+    for (const ch of chapterPayload.data || []) {
+      const num = ch?.attributes?.chapter;
+      if (!num) continue;
+      if (!seen.has(num)) {
+        const groupRel = ch.relationships?.find((r: any) => r.type === "scanlation_group");
+        seen.set(num, {
+          id: ch.id,
+          number: parseFloat(num),
+          title: ch.attributes.title || "",
+          volume: ch.attributes.volume || null,
+          publishedAt: ch.attributes.publishAt || null,
+          scanlationGroup: groupRel?.attributes?.name || "Unknown",
+          read: false,
+        });
+      }
     }
 
-    const chapters = Array.from(unique.values())
-      .sort((a, b) => parseFloat(b.attributes.chapter) - parseFloat(a.attributes.chapter))
-      .map((ch: any) => ({
-        id: ch.id,
-        number: Number(ch.attributes.chapter),
-        title: ch.attributes.title || `Chapter ${ch.attributes.chapter}`,
-        read: false,
-      }));
+    const chapters = Array.from(seen.values()).sort((a, b) => b.number - a.number);
 
     return Response.json({
       success: true,
@@ -56,4 +77,3 @@ export async function GET(
     );
   }
 }
-
