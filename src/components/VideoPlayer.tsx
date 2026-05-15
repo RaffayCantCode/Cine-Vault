@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Play, AlertCircle, Check, Server } from "lucide-react";
 import { StreamingSource, getStreamingSources } from "@/lib/streaming-fetch";
@@ -18,6 +18,12 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
   const [currentSource, setCurrentSource] = useState<StreamingSource>(sources[0]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setCurrentSource(sources[0]);
+    setError(null);
+    setIsLoading(true);
+  }, [type, id, season, episode]);
 
   const handleSourceChange = (source: StreamingSource) => {
     setCurrentSource(source);

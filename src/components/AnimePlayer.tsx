@@ -4,13 +4,15 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertCircle, Check, Server, ChevronLeft, ChevronRight,
-  Maximize2, Minimize2, RotateCcw, Loader2, Info, X, Play
+  Maximize2, Minimize2, RotateCcw, Loader2, Info, Play
 } from "lucide-react";
+import Hls from "hls.js";
+import { getStreamingSource } from "@/lib/anime-fetch";
 
 interface Source {
   name: string;
   embedUrl: string;
-  type: "iframe";
+  type: "iframe" | "hls";
   quality: string;
   baseDomain: string;
   color: string;
@@ -20,6 +22,7 @@ interface AnimePlayerProps {
   animeId: string;
   animeTitle: string;
   episode: number;
+  episodeId?: string;
   episodeSources?: { src: string; name: string }[];
   onSourceChange?: (source: Source) => void;
   onAutoNext?: () => void;
@@ -94,45 +97,80 @@ function buildEmbedUrl(source: Omit<Source, "embedUrl">, animeId: string, animeT
   }
 }
 
-export function AnimePlayer({ animeId, animeTitle, episode, episodeSources, onSourceChange, onAutoNext, onEnded }: AnimePlayerProps) {
+export function AnimePlayer({ animeId, animeTitle, episode, episodeId, episodeSources, onSourceChange, onAutoNext, onEnded }: AnimePlayerProps) {
   const [currentSource, setCurrentSource] = useState<Source | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showSources, setShowSources] = useState(false);
-  const [iframeKey, setIframeKey] = useState(0);
   const [autoNextCountdown, setAutoNextCountdown] = useState<number | null>(null);
+  const [dynamicSources, setDynamicSources] = useState<Source[]>([]);
+  const [subtitles, setSubtitles] = useState<{ url: string; lang: string }[]>([]);
+  
+  const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
 
-  const apiSources: Source[] = episodeSources?.length
-    ? episodeSources.map((s, i) => ({
-        name: s.name || `Server ${i + 1}`,
-        embedUrl: s.src,
-        type: "iframe" as const,
-        quality: "HD" as const,
-        baseDomain: s.src.includes("//") ? s.src.split("/")[2] || "unknown" : "unknown",
-        color: VIDEO_SOURCES[i % VIDEO_SOURCES.length]?.color || "violet",
-      }))
-    : [];
+  useEffect(() => {
+    const fetchApiSources = async () => {
+      if (!episodeId) return;
+      try {
+        setIsLoading(true);
+        const res = await getStreamingSource(animeId, episodeId, "vidcloud");
+        if (res.success && res.data?.sources) {
+          const hlsSources = res.data.sources.map((s: any, idx: number) => ({
+            name: `Kiwi HLS ${s.quality || idx + 1}`,
+            embedUrl: s.url,
+            type: "hls" as const,
+            quality: s.quality || "Auto",
+            baseDomain: "kiwianime",
+            color: "emerald",
+          }));
+          
+          if (res.data.subtitles) {
+            setSubtitles(res.data.subtitles);
+          }
+          
+          setDynamicSources(hlsSources);
+          if (hlsSources.length > 0) {
+            setCurrentSource(hlsSources[0]);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch Kiwi streaming source:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchApiSources();
+  }, [animeId, episodeId]);
 
-  const allSources: Source[] = apiSources.length > 0
-    ? [...apiSources, ...VIDEO_SOURCES.map(s => ({ ...s, embedUrl: buildEmbedUrl(s, animeId, animeTitle, episode) }))]
+  const allSources: Source[] = dynamicSources.length > 0
+    ? [...dynamicSources, ...VIDEO_SOURCES.map(s => ({ ...s, embedUrl: buildEmbedUrl(s, animeId, animeTitle, episode) }))]
     : VIDEO_SOURCES.map(s => ({ ...s, embedUrl: buildEmbedUrl(s, animeId, animeTitle, episode) }));
 
   const activeSources = allSources.filter((s, i, arr) => arr.findIndex(x => x.name === s.name) === i);
 
   useEffect(() => {
-    if (!currentSource && activeSources.length > 0) {
+    if (!currentSource && activeSources.length > 0 && dynamicSources.length === 0) {
       setCurrentSource(activeSources[0]);
     }
-  }, []);
+  }, [activeSources, currentSource, dynamicSources]);
 
   useEffect(() => {
     setError(null);
     setIsLoading(true);
     setAutoNextCountdown(null);
-  }, [episode]);
+    
+    // Cleanup HLS instance on unmount or source change
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [episode, currentSource]);
 
   useEffect(() => {
     if (containerRef.current) {
@@ -140,18 +178,53 @@ export function AnimePlayer({ animeId, animeTitle, episode, episodeSources, onSo
     }
   }, [episode]);
 
+  // HLS Setup
+  useEffect(() => {
+    if (currentSource?.type === "hls" && videoRef.current) {
+      const video = videoRef.current;
+      
+      if (Hls.isSupported()) {
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+        }
+        
+        const hls = new Hls({
+          maxMaxBufferLength: 100,
+        });
+        hlsRef.current = hls;
+        
+        hls.loadSource(currentSource.embedUrl);
+        hls.attachMedia(video);
+        
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setIsLoading(false);
+        });
+        
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            handleError();
+          }
+        });
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = currentSource.embedUrl;
+        video.addEventListener('loadedmetadata', () => {
+          setIsLoading(false);
+        });
+        video.addEventListener('error', handleError);
+      }
+    }
+  }, [currentSource]);
+
   const selectSource = useCallback((source: Source) => {
     setCurrentSource(source);
     setError(null);
     setIsLoading(true);
-    setIframeKey(prev => prev + 1);
     setShowSources(false);
     setAutoNextCountdown(null);
     onSourceChange?.(source);
   }, [onSourceChange]);
 
-  const handleIframeLoad = () => setIsLoading(false);
-  const handleIframeError = () => {
+  const handleError = () => {
     const idx = activeSources.findIndex(s => s.name === currentSource?.name);
     const next = activeSources[idx + 1];
     if (next) {
@@ -260,7 +333,7 @@ export function AnimePlayer({ animeId, animeTitle, episode, episodeSources, onSo
       {/* Video Player */}
       <motion.div
         ref={playerRef}
-        key={iframeKey}
+        key={episode}
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3 }}
@@ -295,7 +368,26 @@ export function AnimePlayer({ animeId, animeTitle, episode, episodeSources, onSo
                 </div>
               </div>
             )}
-            {currentSource && (
+            {currentSource && currentSource.type === "hls" ? (
+              <video
+                ref={videoRef}
+                className="w-full h-full"
+                controls
+                crossOrigin="anonymous"
+                onEnded={() => onAutoNext && onAutoNext()}
+              >
+                {subtitles.map((sub, idx) => (
+                  <track
+                    key={idx}
+                    kind="captions"
+                    src={sub.url}
+                    srcLang={sub.lang.substring(0, 2).toLowerCase()}
+                    label={sub.lang}
+                    default={sub.lang.toLowerCase().includes("english")}
+                  />
+                ))}
+              </video>
+            ) : currentSource && (
               <iframe
                 ref={iframeRef}
                 src={currentSource.embedUrl}
@@ -303,8 +395,8 @@ export function AnimePlayer({ animeId, animeTitle, episode, episodeSources, onSo
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                 allowFullScreen
                 title={`${animeTitle} - Episode ${episode}`}
-                onLoad={handleIframeLoad}
-                onError={handleIframeError}
+                onLoad={() => setIsLoading(false)}
+                onError={handleError}
               />
             )}
           </>

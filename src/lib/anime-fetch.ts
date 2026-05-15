@@ -1,24 +1,17 @@
 // Multi-API Anime Fetcher with Fallback Logic
-// APIs included:
-// 1. Anikoto API - https://www.anikotoapi.site (Working!)
-// 2. AniPub API - https://api.anipub.xyz (Fallback)
+// Integrating Kiwi Anime API for Japanese dub with English sub
 
 interface AnimeAPIConfig {
   name: string;
   baseUrl: string;
-  type: "anikoto" | "anipub";
+  type: "kiwi";
 }
 
 const ANIME_APIS: AnimeAPIConfig[] = [
   {
-    name: "Anikoto",
-    baseUrl: "https://www.anikotoapi.site",
-    type: "anikoto",
-  },
-  {
-    name: "AniPub",
-    baseUrl: "https://api.anipub.xyz",
-    type: "anipub",
+    name: "Kiwi",
+    baseUrl: "https://animefreestream.vercel.app/anime/zoro",
+    type: "kiwi",
   },
 ];
 
@@ -38,149 +31,72 @@ export interface AnimeItem {
 // Transform different API responses to unified format
 function transformResponse(apiType: string, data: any): any {
   switch (apiType) {
-    case "anikoto":
-      return transformAnikoto(data);
-    case "anipub":
-      return transformAniPub(data);
+    case "kiwi":
+      return transformKiwi(data);
     default:
       return data;
   }
 }
 
-// Transform Anikoto API response
-function transformAnikoto(data: any): any {
-  if (data.ok && data.data) {
-    // Check if it's an array (search) or single object (series)
-    if (Array.isArray(data.data)) {
-      const items = data.data.map((item: any) => ({
-        id: String(item.id),
-        name: item.title || "Unknown",
-        jname: item.native || null,
-        poster: item.poster || "",
-        type: "TV",
-        episodes: {
-          sub: item.is_sub || null,
-          dub: item.is_dub || null,
-        },
-        rating: item.score || null,
-        description: item.description || "",
-        genres: item.terms_by_type?.genre || [],
-      }));
-      return { success: true, data: items };
-    } else {
-      // Series detail response
-      return {
-        success: true,
-        data: {
-          ...data.data,
-          episodes: data.data.episodes?.map((ep: any, idx: number) => ({
-            episodeId: String(ep.id || idx + 1),
-            episodeNum: ep.number || idx + 1,
-            title: ep.title || `Episode ${idx + 1}`,
-          })) || [],
-          totalEpisodes: data.data.episodes?.length || 0,
-        },
-      };
-    }
-  }
-  return data;
-}
-
-function transformAniPub(data: any): any {
-  // If it's a search response
-  if (data.results || data.data) {
-    const items = (data.results || data.data || []).map((item: any) => ({
-      id: item.slug || item.id || "",
-      name: item.title || item.name || "Unknown",
-      jname: item.japanese_title || item.jname || null,
-      poster: item.poster || item.image || item.cover || "",
-      type: item.type || item.format || "TV",
-      episodes: {
-        sub: item.episodes?.sub || item.episode_count || null,
-        dub: item.episodes?.dub || null,
-      },
-      rating: item.rating || null,
-      description: item.description || item.synopsis || "",
-      genres: item.genres || [],
-    }));
-    return { success: true, data: items };
-  }
-  return data;
-}
-
-function transformConsumet(data: any): any {
-  // Consumet returns array for list endpoints
-  if (Array.isArray(data)) {
-    const items = data.map((item: any) => ({
-      id: item.id || "",
+// Transform Kiwi API response
+function transformKiwi(data: any): any {
+  if (data.results || Array.isArray(data.results)) {
+    // Search or list response
+    const items = (data.results || []).map((item: any) => ({
+      id: String(item.id || ""),
       name: item.title || "Unknown",
-      jname: null,
+      jname: item.japaneseTitle || null,
       poster: item.image || "",
-      type: item.subOrDub || "sub",
-      episodes: {
-        sub: item.episodes || item.episodeCount || null,
-        dub: null,
-      },
-      rating: null,
-      description: "",
-      genres: item.genres || [],
-    }));
-    return { success: true, data: items };
-  }
-  return data;
-}
-
-function transformAniWatch(data: any): any {
-  if (data.animes || data.results || data.data) {
-    const items = (data.animes || data.results || data.data || []).map((item: any) => ({
-      id: item.id || item.slug || "",
-      name: item.name || item.title || "Unknown",
-      jname: item.jname || item.japanese_title || null,
-      poster: item.poster || item.img || item.image || item.cover || "",
       type: item.type || "TV",
       episodes: {
-        sub: item.episodes?.sub || item.episode_count || null,
-        dub: item.episodes?.dub || null,
+        sub: item.sub || null,
+        dub: item.dub || null,
       },
       rating: null,
       description: item.description || "",
       genres: item.genres || [],
     }));
     return { success: true, data: items };
-}
+  } else if (data.id || data.title) {
+    // Series detail response
+    return {
+      success: true,
+      data: {
+        ...data,
+        id: String(data.id),
+        name: data.title || "Unknown",
+        jname: data.japaneseTitle || null,
+        poster: data.image || "",
+        episodes: data.episodes?.map((ep: any, idx: number) => ({
+          episodeId: String(ep.id || idx + 1),
+          episodeNum: ep.number || idx + 1,
+          title: ep.title || `Episode ${ep.number || idx + 1}`,
+        })) || [],
+        totalEpisodes: data.totalEpisodes || data.episodes?.length || 0,
+      },
+    };
+  }
   return data;
 }
 
 // Build endpoint URL based on API type
 function buildEndpoint(api: AnimeAPIConfig, endpoint: string): string {
   switch (api.type) {
-    case "anikoto":
-      // Anikoto API - get recent anime
+    case "kiwi":
+      // Kiwi API - get recent anime
       if (endpoint === "/home") {
-        return `${api.baseUrl}/recent-anime?page=1&per_page=20`;
+        return `${api.baseUrl}/top-airing?page=1`;
       }
       if (endpoint.startsWith("/api/search")) {
         const params = new URLSearchParams(endpoint.split("?")[1]);
         const keyword = params.get("keyword") || params.get("q") || "";
-        return `${api.baseUrl}/search?title=${encodeURIComponent(keyword)}&page=1`;
+        return `${api.baseUrl}/${encodeURIComponent(keyword)}?page=1`;
       }
       if (endpoint.startsWith("/series/")) {
         const seriesId = endpoint.replace("/series/", "");
-        return `${api.baseUrl}/series/${seriesId}`;
+        return `${api.baseUrl}/info?id=${encodeURIComponent(seriesId)}`;
       }
-      return `${api.baseUrl}/recent-anime?page=1&per_page=20`;
-    
-    case "anipub":
-      // AniPub API endpoints
-      if (endpoint === "/home") {
-        return `${api.baseUrl}/api/anime/trending?limit=20`;
-      }
-      if (endpoint.startsWith("/api/search")) {
-        const params = new URLSearchParams(endpoint.split("?")[1]);
-        const keyword = params.get("keyword") || params.get("q") || "";
-        return `${api.baseUrl}/api/search/${encodeURIComponent(keyword)}`;
-      }
-      return `${api.baseUrl}${endpoint}`;
+      return `${api.baseUrl}/recent-episodes?page=1`;
     
     default:
       return `${api.baseUrl}${endpoint}`;
@@ -271,12 +187,8 @@ export async function getStreamingSource(
       let url: string;
 
       switch (api.type) {
-        case "anikoto":
-          // Get series details with episodes
-          url = `${api.baseUrl}/series/${animeId}`;
-          break;
-        case "anipub":
-          url = `${api.baseUrl}/v1/api/details/${episodeId}`;
+        case "kiwi":
+          url = `${api.baseUrl}/watch/${encodeURIComponent(episodeId)}?server=${server === 'default' ? 'vidcloud' : server}`;
           break;
         default:
           continue;

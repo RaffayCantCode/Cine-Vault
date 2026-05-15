@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import * as AniPub from "@/lib/anime-fetch-new";
+import { fetchAnimeApi } from "@/lib/anime-fetch";
 
 export async function GET(
   _request: NextRequest,
@@ -8,16 +8,16 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const links = await AniPub.getStreamingLinks(id);
-    const rawEpisodes = links.data?.episodes || [];
+    const data = await fetchAnimeApi(`/series/${id}`);
+    const rawEpisodes = data?.data?.episodes || [];
+    
     const episodes = rawEpisodes.map((ep: any, index: number) => {
-      const src = ep.src || "";
       return {
         episodeId: ep.episodeId || `${id}-${index + 1}`,
         episodeNum: Number(ep.episodeNum || index + 1),
         title: ep.title || `Episode ${index + 1}`,
-        src,
-        sources: src ? [{ name: "AniPub", url: src }] : [],
+        src: "",
+        sources: [],
       };
     });
 

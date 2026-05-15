@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import * as AniPub from "@/lib/anime-fetch-new";
+import { fetchAnimeApi } from "@/lib/anime-fetch";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -9,13 +9,8 @@ export async function GET(request: NextRequest) {
   try {
     let data: any;
 
-    // Use different genres for pagination to get different content
-    const genres = ["action", "adventure", "comedy", "fantasy", "sci-fi", "drama", "horror", "romance"];
-    const genreIndex = (page - 1) % genres.length;
-    const genre = genres[genreIndex];
-
     if (category === "home" || category === "spotlight" || category === "popular") {
-      data = await AniPub.getAnimeByGenre(genre, page);
+      data = await fetchAnimeApi(`/popular?page=${page}`);
       const animes = data.data || [];
       return Response.json({
         success: true,
@@ -27,7 +22,7 @@ export async function GET(request: NextRequest) {
         hasMore: true,
       });
     } else if (category === "new-releases" || category === "latest") {
-      data = await AniPub.getAnimeByGenre(genre, page);
+      data = await fetchAnimeApi(`/recently-added?page=${page}`);
       const animes = data.data || [];
       return Response.json({
         success: true,
@@ -40,7 +35,7 @@ export async function GET(request: NextRequest) {
       });
     } else if (category === "search") {
       const query = searchParams.get("q") || "";
-      data = await AniPub.searchAnime(query, page);
+      data = await fetchAnimeApi(`/search?q=${encodeURIComponent(query)}&page=${page}`);
       const animes = data.data || [];
       return Response.json({
         success: true,
@@ -52,7 +47,7 @@ export async function GET(request: NextRequest) {
         hasMore: animes.length >= 9,
       });
     } else {
-      data = await AniPub.getAnimeByGenre(genre, page);
+      data = await fetchAnimeApi(`/popular?page=${page}`);
       const animes = data.data || [];
       return Response.json({
         success: true,

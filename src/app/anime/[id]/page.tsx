@@ -251,13 +251,14 @@ export default function AnimeDetailPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.35 }}
                     >
-                      <AnimePlayer
-                        animeId={id}
-                        animeTitle={anime.name}
-                        episode={selectedEp.episodeNum}
-                        episodeSources={selectedEp.sources?.map(s => ({ src: s.url, name: s.name }))}
-                        onAutoNext={handleAutoNext}
-                      />
+                        <AnimePlayer
+                          animeId={id}
+                          animeTitle={anime.name}
+                          episode={selectedEp.episodeNum}
+                          episodeId={selectedEp.episodeId}
+                          episodeSources={selectedEp.sources?.map(s => ({ src: s.url, name: s.name }))}
+                          onAutoNext={handleAutoNext}
+                        />
                     </motion.div>
                   )}
 
@@ -398,6 +399,7 @@ export default function AnimeDetailPage() {
                       animeId={id}
                       animeTitle={anime.name}
                       episode={selectedEp.episodeNum}
+                      episodeId={selectedEp.episodeId}
                       episodeSources={selectedEp.sources?.map(s => ({ src: s.url, name: s.name }))}
                       onAutoNext={handleAutoNext}
                     />

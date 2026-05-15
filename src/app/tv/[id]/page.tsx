@@ -314,24 +314,33 @@ export default function TvDetailPage() {
             )}
           </div>
 
-          <aside className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3">
-            <div className="mb-2 text-xs font-bold uppercase tracking-wider text-white/60">Episode Queue</div>
-            <div className="max-h-[70vh] overflow-y-auto space-y-2 pr-1">
-              {seasonData?.episodes?.map((episode) => (
-                <button
-                  key={`queue-${episode.id}`}
-                  onClick={() => handleWatchEpisode(selectedSeason, episode.episode_number, episode.name)}
-                  className={cn(
-                    "w-full rounded-xl border p-3 text-left transition",
-                    selectedEpisode === episode.episode_number
-                      ? "border-primary/60 bg-primary/15"
-                      : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06]"
-                  )}
-                >
-                  <div className="text-xs font-bold text-white/70">E{episode.episode_number}</div>
-                  <div className="mt-0.5 text-sm font-semibold text-white line-clamp-2">{episode.name}</div>
-                </button>
-              ))}
+          <aside className="w-full xl:w-80 shrink-0 rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden flex flex-col max-h-[60vh] xl:max-h-[70vh]">
+            <div className="p-4 border-b border-white/[0.06] bg-white/[0.01]">
+              <div className="text-sm font-bold text-white flex items-center justify-between">
+                <span>Episode Queue</span>
+                <span className="text-xs font-normal text-white/40">Season {selectedSeason}</span>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
+              {seasonData?.episodes?.map((episode) => {
+                const isSelected = selectedEpisode === episode.episode_number;
+                return (
+                  <button
+                    key={`queue-${episode.id}`}
+                    onClick={() => handleWatchEpisode(selectedSeason, episode.episode_number, episode.name)}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center gap-3 ${
+                      isSelected
+                        ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-500/20"
+                        : "bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white"
+                    }`}
+                  >
+                    <span className={`text-sm font-black w-10 shrink-0 ${isSelected ? "text-white" : ""}`}>
+                      E{episode.episode_number}
+                    </span>
+                    <span className="text-xs truncate flex-1 line-clamp-1">{episode.name}</span>
+                  </button>
+                );
+              })}
             </div>
           </aside>
         </div>
