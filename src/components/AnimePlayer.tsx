@@ -39,7 +39,6 @@ const VIDEO_SOURCES: Omit<Source, "embedUrl">[] = [
   { name: "AutoEmbed", quality: "720p", baseDomain: "autoembed.co", type: "iframe", color: "blue" },
   { name: "2Embed", quality: "720p", baseDomain: "2embed.cc", type: "iframe", color: "orange" },
   { name: "VidLink", quality: "1080p", baseDomain: "vidlink.pro", type: "iframe", color: "green" },
-  { name: "SuperStream", quality: "HD", baseDomain: "superstream.se", type: "iframe", color: "red" },
   { name: "VidCloud", quality: "720p", baseDomain: "vidcloud9.ru", type: "iframe", color: "sky" },
   { name: "MovieWeb", quality: "1080p", baseDomain: "movieweb.top", type: "iframe", color: "yellow" },
 ];
@@ -86,8 +85,6 @@ function buildEmbedUrl(source: Omit<Source, "embedUrl">, animeId: string, animeT
       return `https://www.2embed.cc/embed/${numericId}`;
     case "vidlink.pro":
       return `https://vidlink.pro/embed/anime/${numericId}`;
-    case "superstream.se":
-      return `https://superstream.se/embed/${cleanTitle}-episode-${episode}`;
     case "vidcloud9.ru":
       return `https://vidcloud9.ru/embed/${cleanTitle}-episode-${episode}`;
     case "movieweb.top":
