@@ -21,33 +21,57 @@ interface AnimePlayerProps {
 function buildSources(animeId: string, malId: string | null | undefined, episode: number): Source[] {
   const numericId = animeId.replace(/\D/g, "");
   const activeMalId = malId ? malId.trim() : numericId;
-  return [
+  const sources: Source[] = [
     {
-      name: "AnimePahe",
+      name: "AnimePahe (AniList)",
       url: `https://vidnest.fun/animepahe/${numericId}/${episode}/sub?quality=1080`,
       color: "from-[#462C7D]/30 to-[#831C91]/20",
     },
-    {
-      name: "GogoAnime (Sub)",
-      url: `https://vidnest.fun/gogoanime/${numericId}/${episode}/sub`,
-      color: "from-[#1e293b]/40 to-[#0f172a]/20",
-    },
-    {
-      name: "VidLink (Sub)",
-      url: `https://vidlink.pro/anime/${activeMalId}/${episode}/sub`,
-      color: "from-[#312e81]/40 to-[#4f46e5]/20",
-    },
-    {
-      name: "VidLink (Dub)",
-      url: `https://vidlink.pro/anime/${activeMalId}/${episode}/dub`,
-      color: "from-[#4f46e5]/30 to-[#ec4899]/10",
-    },
-    {
-      name: "VidNest",
-      url: `https://vidnest.fun/anime/${numericId}/${episode}/sub`,
-      color: "from-[#831C91]/30 to-[#D552A3]/20",
-    },
   ];
+
+  if (activeMalId && activeMalId !== numericId) {
+    sources.push({
+      name: "AnimePahe (MAL)",
+      url: `https://vidnest.fun/animepahe/${activeMalId}/${episode}/sub?quality=1080`,
+      color: "from-[#462C7D]/30 to-[#831C91]/20",
+    });
+  }
+
+  sources.push({
+    name: "GogoAnime (AniList)",
+    url: `https://vidnest.fun/gogoanime/${numericId}/${episode}/sub`,
+    color: "from-[#1e293b]/40 to-[#0f172a]/20",
+  });
+
+  if (activeMalId && activeMalId !== numericId) {
+    sources.push({
+      name: "GogoAnime (MAL)",
+      url: `https://vidnest.fun/gogoanime/${activeMalId}/${episode}/sub`,
+      color: "from-[#1e293b]/40 to-[#0f172a]/20",
+    });
+  }
+
+  sources.push({
+    name: "VidLink (Sub)",
+    url: `https://vidlink.pro/anime/${activeMalId}/${episode}/sub`,
+    color: "from-[#312e81]/40 to-[#4f46e5]/20",
+  });
+
+  sources.push({
+    name: "VidNest (AniList)",
+    url: `https://vidnest.fun/anime/${numericId}/${episode}/sub`,
+    color: "from-[#831C91]/30 to-[#D552A3]/20",
+  });
+
+  if (activeMalId && activeMalId !== numericId) {
+    sources.push({
+      name: "VidNest (MAL)",
+      url: `https://vidnest.fun/anime/${activeMalId}/${episode}/sub`,
+      color: "from-[#831C91]/30 to-[#D552A3]/20",
+    });
+  }
+
+  return sources;
 }
 
 export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }: AnimePlayerProps) {
@@ -111,15 +135,9 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
     <div className="w-full space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <button
-            onClick={switchSource}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r ${currentSource.color} border border-[#D552A3]/20 hover:opacity-80 transition-opacity`}
-            title="Switch source"
-          >
-            <Server className="w-3.5 h-3.5 text-[#D552A3]" />
-            <span className="text-xs font-bold text-white/80">{currentSource.name}</span>
-            <span className="text-[9px] font-extrabold text-[#D552A3] uppercase tracking-widest ml-1">1080p</span>
-          </button>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/10">
+            <span className="text-xs font-bold text-white/85">Playing: {currentSource.name}</span>
+          </div>
           {hasError && (
             <span className="text-[10px] text-red-400 bg-red-400/10 border border-red-400/20 px-2 py-0.5 rounded-lg font-bold">
               Failed
@@ -127,7 +145,7 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
           )}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={switchSource} className="p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-white/50 hover:text-white transition-all" title="Switch source">
+          <button onClick={switchSource} className="p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-white/50 hover:text-white transition-all" title="Next source">
             <RotateCcw className="w-4 h-4" />
           </button>
           <button onClick={toggleFullscreen} className="p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-white/50 hover:text-white transition-all" title="Fullscreen">
@@ -163,6 +181,48 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
           onError={() => { setHasError(true); setIsLoading(false); if (timerRef.current) clearTimeout(timerRef.current); }}
         />
       </motion.div>
+
+      {/* CLEAR SOURCES SELECTOR BOX */}
+      <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Server className="w-4 h-4 text-[#D552A3]" />
+            <span className="text-xs font-semibold text-white/90">Select Streaming Server</span>
+          </div>
+          <span className="text-[10px] text-white/45 font-medium">
+            If stream fails, buffers, or does not play, click another server below
+          </span>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {sources.map((source, index) => {
+            const isActive = sourceIndex === index;
+            return (
+              <button
+                key={source.name}
+                onClick={() => {
+                  setSourceIndex(index);
+                  setIsLoading(true);
+                  setHasError(false);
+                }}
+                className={`flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all text-xs font-medium ${
+                  isActive
+                    ? `bg-gradient-to-r ${source.color} border-[#D552A3]/30 text-white shadow-lg shadow-[#D552A3]/5`
+                    : "bg-white/[0.04] hover:bg-white/[0.08] border-white/5 hover:border-white/10 text-white/70 hover:text-white"
+                }`}
+              >
+                <span className="truncate">{source.name}</span>
+                {isActive ? (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#D552A3] animate-pulse shrink-0 ml-1.5" />
+                ) : (
+                  source.name.includes("AnimePahe") && (
+                    <span className="text-[9px] font-bold text-[#D552A3] uppercase shrink-0 ml-1.5">1080p</span>
+                  )
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="flex items-center justify-between gap-2 text-[10px] text-white/20">
         <span>Japanese / English audio with English subtitles</span>
