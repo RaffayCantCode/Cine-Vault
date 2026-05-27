@@ -178,7 +178,7 @@ export default function TvDetailPage() {
     <div className="min-h-screen bg-background text-foreground pb-24">
       <Sidebar />
 
-      <main className="md:pl-56 lg:pl-64">
+      <main className="md:pl-56 lg:pl-64 bleed-header">
       <div className="relative w-full h-[62vh] md:h-[72vh] overflow-hidden flex items-end">
         <div className="absolute inset-0 z-0">
           {backdropUrl ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Check, Server, Maximize2, ChevronRight, RotateCcw, Loader2 } from "lucide-react";
 import { StreamingSource, getStreamingSources } from "@/lib/streaming-fetch";
@@ -30,6 +30,7 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
   const [showSources, setShowSources] = useState(false);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentStyle = SOURCE_STYLES[currentSource?.type] || SOURCE_STYLES.cinesrc;
 
@@ -46,19 +47,39 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
     setShowSources(false);
   };
 
-  const handleIframeError = () => {
+  const handleIframeError = useCallback(() => {
     const currentIndex = sources.findIndex((s) => s.name === currentSource.name);
     const nextSource = sources[currentIndex + 1];
     if (nextSource) {
       setError(`${currentSource.name} failed, trying ${nextSource.name}...`);
+      setIsLoading(true);
       setTimeout(() => {
         setCurrentSource(nextSource);
         setError(null);
       }, 1200);
     } else {
+      setIsLoading(false);
       setError("All streaming sources failed. Please try again later.");
     }
-  };
+  }, [sources, currentSource]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      return;
+    }
+
+    // 7 seconds loading timeout before auto-switching
+    timeoutRef.current = setTimeout(() => {
+      if (isLoading) {
+        handleIframeError();
+      }
+    }, 7000);
+
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [isLoading, currentSource, handleIframeError]);
 
   const requestFullscreen = async () => {
     const el = playerContainerRef.current;

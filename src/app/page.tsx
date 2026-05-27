@@ -30,7 +30,17 @@ const FRANCHISES = [
   "Mission Impossible", "Disney", "Pixar",
 ];
 
+function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 export default function Home() {
+  const [heroIndex, setHeroIndex] = useState(0);
   const [trending, setTrending] = useState<MediaItem[]>([]);
   const [popular, setPopular] = useState<MediaItem[]>([]);
   const [topRated, setTopRated] = useState<MediaItem[]>([]);
@@ -82,14 +92,14 @@ export default function Home() {
           (i) => ({ ...i, media_type: "movie" as const })
         );
 
-        setTrending(trendingSafe);
-        setPopular(popularSafe);
-        setTopRated(topSafe);
-        setRecent(recentSafe);
-        setRecommended([
+        setTrending(shuffleArray(trendingSafe));
+        setPopular(shuffleArray(popularSafe));
+        setTopRated(shuffleArray(topSafe));
+        setRecent(shuffleArray(recentSafe));
+        setRecommended(shuffleArray([
           ...popularSafe.slice(0, 10),
           ...topSafe.slice(0, 10),
-        ]);
+        ]));
         setGenres((gm.genres || []).slice(0, 18));
       } catch (e) {
         if (!cancelled) {
@@ -106,14 +116,35 @@ export default function Home() {
     return () => { cancelled = true; };
   }, []);
 
-  const hero = useMemo(() => trending[0] || popular[0], [trending, popular]);
+  const heroPool = useMemo(() => {
+    const pool = [...trending.slice(0, 5), ...popular.slice(0, 5)];
+    const unique: MediaItem[] = [];
+    const seen = new Set<number>();
+    for (const item of pool) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id);
+        unique.push(item);
+      }
+    }
+    return unique.slice(0, 5);
+  }, [trending, popular]);
+
+  const hero = heroPool[heroIndex];
+
+  useEffect(() => {
+    if (heroPool.length <= 1) return;
+    const interval = setInterval(() => {
+      setHeroIndex((prev) => (prev + 1) % heroPool.length);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [heroPool]);
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
       <Sidebar />
-      <main className="md:pl-56 lg:pl-64">
+      <main className="md:pl-56 lg:pl-64 bleed-header">
         {hero ? (
-          <HeroBanner item={hero} />
+          <HeroBanner key={hero.id} item={hero} />
         ) : (
           !loadError && (
             <div className="h-[56vh] bg-muted/30 animate-pulse" />

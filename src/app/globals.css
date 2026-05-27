@@ -325,3 +325,27 @@
   mask-image: linear-gradient(to left, black calc(100% - 32px), transparent 100%);
   -webkit-mask-image: linear-gradient(to left, black calc(100% - 32px), transparent 100%);
 }
+
+/* Mobile Spacing & Layout Spacing Rules */
+@media (max-width: 767px) {
+  main {
+    padding-top: 3.5rem !important; /* 56px for mobile top header */
+    padding-bottom: 5rem !important; /* 80px for mobile bottom nav space */
+  }
+  main.bleed-header {
+    padding-top: 0 !important;
+  }
+}
+
+/* Eliminate mobile 300ms click delay & optimize touch responses */
+button,
+a,
+input,
+select,
+textarea,
+[role="button"],
+.cursor-pointer {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent; /* Remove annoying grey tap overlay on mobile Safari */
+}
+

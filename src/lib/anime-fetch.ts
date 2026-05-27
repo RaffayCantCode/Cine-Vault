@@ -4,6 +4,7 @@
 
 export interface AnimeItem {
   id: string;
+  idMal?: string | null;
   name: string;
   jname?: string | null;
   poster: string;
@@ -13,6 +14,9 @@ export interface AnimeItem {
   description?: string;
   genres?: string[];
   status?: string | null;
+  season?: string | null;
+  seasonYear?: number | null;
+  format?: string | null;
 }
 
 export interface SeasonInfo {
@@ -25,6 +29,7 @@ export interface SeasonInfo {
 
 interface AniListMedia {
   id: number;
+  idMal: number | null;
   title: { romaji: string; english: string | null; native: string | null };
   coverImage: { large: string; extraLarge: string };
   episodes: number | null;
@@ -53,6 +58,7 @@ function anilistQuery(query: string, variables: Record<string, any>): Promise<an
 function transformAniList(media: AniListMedia): AnimeItem {
   return {
     id: String(media.id),
+    idMal: media.idMal ? String(media.idMal) : null,
     name: media.title.english || media.title.romaji,
     jname: media.title.native || null,
     poster: media.coverImage?.extraLarge || media.coverImage?.large || "",
@@ -62,6 +68,9 @@ function transformAniList(media: AniListMedia): AnimeItem {
     description: media.description?.replace(/<[^>]*>/g, "") || "",
     genres: media.genres || [],
     status: media.status || null,
+    season: media.season || null,
+    seasonYear: media.seasonYear || null,
+    format: media.format || null,
   };
 }
 
@@ -73,8 +82,8 @@ const LIST_QUERY = `query ($page: Int, $genre: String, $q: String) {
       genre: $genre,
       search: $q
     ) {
-      id title { romaji english native } coverImage { large extraLarge }
-      episodes genres averageScore description status type
+      id idMal title { romaji english native } coverImage { large extraLarge }
+      episodes genres averageScore description status type format season seasonYear
     }
   }
 }`;
@@ -86,8 +95,8 @@ const TRENDING_QUERY = `query ($page: Int, $genre: String) {
       sort: [TRENDING_DESC],
       genre: $genre
     ) {
-      id title { romaji english native } coverImage { large extraLarge }
-      episodes genres averageScore description status type
+      id idMal title { romaji english native } coverImage { large extraLarge }
+      episodes genres averageScore description status type format season seasonYear
     }
   }
 }`;
@@ -101,8 +110,8 @@ const AIRING_QUERY = `query ($page: Int, $genre: String, $season: MediaSeason, $
       season: $season,
       seasonYear: $year
     ) {
-      id title { romaji english native } coverImage { large extraLarge }
-      episodes genres averageScore description status type
+      id idMal title { romaji english native } coverImage { large extraLarge }
+      episodes genres averageScore description status type format season seasonYear
     }
   }
 }`;
@@ -187,7 +196,7 @@ export async function getAnimeDetails(id: string): Promise<{
   try {
     const q = `query ($id: Int) {
       Media(id: $id, type: ANIME) {
-        id title { romaji english native } coverImage { large extraLarge }
+        id idMal title { romaji english native } coverImage { large extraLarge }
         episodes genres averageScore description status type format season seasonYear
       }
     }`;
@@ -212,11 +221,13 @@ export async function getAnimeDetails(id: string): Promise<{
             episodeId: `${id}-${i + 1}`,
             episodeNum: i + 1,
             title: `Episode ${i + 1}`,
+            description: `Watch Episode ${i + 1} of ${a.title_english || a.title || "Unknown"} in high quality with English subtitles.`,
           }));
           const totalEps = Math.max(a.episodes || 12, 1);
           return {
             anime: {
               id: String(a.mal_id),
+              idMal: String(a.mal_id),
               name: a.title_english || a.title || "Unknown",
               jname: a.title_japanese || null,
               poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url || "",
@@ -226,6 +237,9 @@ export async function getAnimeDetails(id: string): Promise<{
               description: a.synopsis || "",
               genres: a.genres?.map((g: any) => g.name) || [],
               status: a.status || null,
+              season: a.season || null,
+              seasonYear: a.year || null,
+              format: a.type || null,
             },
             episodes,
             totalEpisodes: totalEps,
@@ -307,6 +321,7 @@ export async function getAnimeDetails(id: string): Promise<{
     episodeId: `${id}-${i + 1}`,
     episodeNum: i + 1,
     title: `Episode ${i + 1}`,
+    description: `Watch Episode ${i + 1} of ${anime.name} in high quality with English subtitles.`,
   }));
 
   return { anime, episodes, totalEpisodes, seasons };

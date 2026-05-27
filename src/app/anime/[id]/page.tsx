@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Sidebar } from "@/components/Sidebar";
 import { AnimePlayer } from "@/components/AnimePlayer";
-import { fetchJson } from "@/lib/utils";
+import { fetchJson, cn } from "@/lib/utils";
 import type { SeasonInfo } from "@/lib/anime-fetch";
-import { Star, ArrowLeft, Tv2, Clock, ChevronLeft, ChevronRight, List, Calendar, Lock } from "lucide-react";
+import { Star, ArrowLeft, Tv2, Clock, ChevronLeft, ChevronRight, List, Calendar, Lock, Play } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface AnimeDetail {
   id: string;
+  idMal?: string | null;
   name: string;
   jname?: string | null;
   poster: string;
@@ -23,6 +24,9 @@ interface AnimeDetail {
   genres?: string[];
   totalEpisodes: number;
   seasons: SeasonInfo[];
+  season?: string | null;
+  seasonYear?: number | null;
+  format?: string | null;
 }
 
 interface Episode {
@@ -32,6 +36,7 @@ interface Episode {
   isFiller?: boolean;
   releasedDate?: string;
   isReleased?: boolean;
+  description?: string;
 }
 
 export default function AnimeDetailPage() {
@@ -44,12 +49,10 @@ export default function AnimeDetailPage() {
   const [episodesLoading, setEpisodesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedEp, setSelectedEp] = useState<Episode | null>(null);
-  const [showMobileEpisodes, setShowMobileEpisodes] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [currentSeasonId, setCurrentSeasonId] = useState<string>(id);
 
   const playerRef = useRef<HTMLDivElement>(null);
-  const episodeListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -113,16 +116,17 @@ export default function AnimeDetailPage() {
     if (season.isCurrent) return;
     setCurrentSeasonId(season.id);
     setAnime(prev => prev ? { ...prev, totalEpisodes: season.totalEpisodes } : prev);
-    setShowMobileEpisodes(false);
     await loadEpisodes(season.id);
   };
 
-  const episodeGroups = episodes.reduce((acc, ep) => {
-    const group = Math.floor((ep.episodeNum - 1) / 30);
-    if (!acc[group]) acc[group] = [];
-    acc[group].push(ep);
-    return acc;
-  }, {} as Record<number, Episode[]>);
+  const episodeGroups = useMemo(() => {
+    return episodes.reduce((acc, ep) => {
+      const group = Math.floor((ep.episodeNum - 1) / 30);
+      if (!acc[group]) acc[group] = [];
+      acc[group].push(ep);
+      return acc;
+    }, {} as Record<number, Episode[]>);
+  }, [episodes]);
 
   const totalPages = Object.keys(episodeGroups).length;
   const currentIdx = episodes.findIndex(e => e.episodeId === selectedEp?.episodeId);
@@ -146,7 +150,6 @@ export default function AnimeDetailPage() {
   const handleSelectEp = (ep: Episode) => {
     if (ep.isReleased === false) return;
     setSelectedEp(ep);
-    setShowMobileEpisodes(false);
   };
 
   const handleAutoNext = () => handleNext();
@@ -156,13 +159,13 @@ export default function AnimeDetailPage() {
     <div className="min-h-screen bg-background text-foreground pb-20">
       <Sidebar />
 
-      <main className="md:pl-56 lg:pl-64 pt-0">
+      <main className="md:pl-56 lg:pl-64 pt-0 bleed-header">
         {isLoading ? (
-          <div className="px-5 md:px-12 max-w-screen-2xl mx-auto">
+          <div className="px-5 md:px-12 max-w-screen-2xl mx-auto pt-6">
             <div className="w-full h-[60vh] rounded-2xl bg-gradient-to-br from-[#462C7D]/20 to-background animate-pulse" />
           </div>
         ) : error ? (
-          <div className="px-5 md:px-12 max-w-screen-2xl mx-auto">
+          <div className="px-5 md:px-12 max-w-screen-2xl mx-auto pt-16">
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center backdrop-blur-xl">
               <div className="text-6xl mb-4">😔</div>
               <div className="text-xl font-bold text-white mb-2">Couldn&apos;t load anime</div>
@@ -174,48 +177,58 @@ export default function AnimeDetailPage() {
           </div>
         ) : anime ? (
           <>
-            {/* Hero */}
+            {/* Hero Banner Section */}
             <div className="relative w-full h-[55vh] md:h-[65vh] flex items-end overflow-hidden">
               <div className="absolute inset-0">
-                <img src={anime.poster} alt={anime.name} className="w-full h-full object-cover object-top scale-105 blur-sm brightness-40" onError={(e) => { e.currentTarget.src = ""; }} />
+                <img src={anime.poster} alt={anime.name} className="w-full h-full object-cover object-top scale-105 blur-sm brightness-45" onError={(e) => { e.currentTarget.src = ""; }} />
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-background/20" />
                 <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/30 to-transparent" />
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(139,92,246,0.15)_0%,transparent_60%)]" />
               </div>
-              <div className="relative z-10 pb-10 md:pb-16 px-5 md:px-12 flex items-end gap-6 md:gap-10 max-w-screen-2xl mx-auto w-full">
-                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} className="hidden md:block shrink-0 w-40 lg:w-52 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10">
+              
+              <div className="relative z-10 pb-6 md:pb-16 px-5 md:px-12 flex flex-row items-center md:items-end gap-4 sm:gap-6 md:gap-10 max-w-screen-2xl mx-auto w-full">
+                {/* Poster Cover Art (Now visible on all screens!) */}
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }} 
+                  animate={{ opacity: 1, scale: 1 }} 
+                  transition={{ duration: 0.5 }} 
+                  className="shrink-0 w-28 sm:w-36 md:w-44 lg:w-52 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl ring-2 ring-white/10"
+                >
                   <img src={anime.poster} alt={anime.name} className="w-full h-full object-cover" />
                 </motion.div>
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }} className="flex flex-col gap-3 max-w-3xl">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="bg-gradient-to-r from-[#462C7D] to-[#D552A3] text-white text-[10px] font-extrabold tracking-widest px-3 py-1 rounded-full uppercase shadow-lg shadow-[#831C91]/25">Anime</span>
-                    {anime.type && <span className="bg-white/10 backdrop-blur-sm text-white/70 text-[10px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase">{anime.type}</span>}
-                    {anime.rating && <span className="bg-white/10 backdrop-blur-sm text-white/70 text-[10px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase">{anime.rating}</span>}
+
+                {/* Text Metadata Panel */}
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }} 
+                  animate={{ opacity: 1, y: 0 }} 
+                  transition={{ delay: 0.2, duration: 0.5 }} 
+                  className="flex flex-col gap-2 md:gap-3 max-w-3xl"
+                >
+                  <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
+                    <span className="bg-gradient-to-r from-[#462C7D] to-[#D552A3] text-white text-[9px] md:text-[10px] font-extrabold tracking-widest px-2.5 py-0.5 md:py-1 rounded-full uppercase shadow-lg shadow-[#831C91]/25">Anime</span>
+                    {anime.type && <span className="bg-white/10 backdrop-blur-sm text-white/70 text-[9px] md:text-[10px] font-bold tracking-widest px-2.5 py-0.5 md:py-1 rounded-full uppercase">{anime.type}</span>}
+                    {anime.rating && <span className="bg-white/10 backdrop-blur-sm text-white/70 text-[9px] md:text-[10px] font-bold tracking-widest px-2.5 py-0.5 md:py-1 rounded-full uppercase">{anime.rating}</span>}
                     {anime.status && (
-                      <span className={`text-[10px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase ${
+                      <span className={`text-[9px] md:text-[10px] font-bold tracking-widest px-2.5 py-0.5 md:py-1 rounded-full uppercase ${
                         anime.status === "Airing" || anime.status === "RELEASING" ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" :
                         anime.status === "Completed" || anime.status === "FINISHED" ? "bg-white/10 text-white/60 border border-white/20" :
                         "bg-white/10 text-white/60 border border-white/20"
                       }`}>{anime.status}</span>
                     )}
                   </div>
-                  <h1 className="font-black text-3xl md:text-5xl text-white leading-tight tracking-tight">{anime.name}</h1>
-                  {anime.jname && <p className="text-white/40 text-sm md:text-base font-medium">{anime.jname}</p>}
-                  <div className="flex items-center gap-5 flex-wrap text-xs text-white/50">
-                    {anime.score && <span className="flex items-center gap-1 text-amber-400 font-bold"><Star className="w-3.5 h-3.5 fill-current" /> {anime.score}</span>}
-                    {anime.totalEpisodes > 0 && <span className="flex items-center gap-1"><Tv2 className="w-3.5 h-3.5" /> {anime.totalEpisodes} eps</span>}
-                  </div>
+                  <h1 className="font-black text-2xl sm:text-4xl md:text-5xl text-white leading-tight tracking-tight">{anime.name}</h1>
+                  {anime.jname && <p className="text-white/40 text-xs sm:text-sm font-medium">{anime.jname}</p>}
+                  
                   {anime.genres && anime.genres.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {anime.genres.slice(0, 6).map(g => <span key={g} className="text-[10px] text-[#D552A3] bg-[#831C91]/10 border border-[#D552A3]/20 px-2.5 py-1 rounded-full font-bold backdrop-blur-sm">{g}</span>)}
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {anime.genres.slice(0, 5).map(g => <span key={g} className="text-[9px] text-[#D552A3] bg-[#831C91]/10 border border-[#D552A3]/20 px-2 py-0.5 rounded-full font-bold backdrop-blur-sm">{g}</span>)}
                     </div>
                   )}
-                  <p className="text-white/50 text-sm leading-relaxed line-clamp-3 max-w-2xl">{anime.description}</p>
                 </motion.div>
               </div>
             </div>
 
-            {/* Content */}
+            {/* Main Content Area */}
             <div className="px-5 md:px-12 max-w-screen-2xl mx-auto mt-6 space-y-6">
               <Link href="/anime" className="inline-flex items-center gap-2 text-sm text-white/40 hover:text-white transition-colors">
                 <ArrowLeft className="w-4 h-4" /> Back to Anime
@@ -229,15 +242,15 @@ export default function AnimeDetailPage() {
                     <button
                       key={season.id}
                       onClick={() => handleSeasonClick(season)}
-                      disabled={season.isCurrent}
+                      disabled={season.id === currentSeasonId}
                       className={`px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all ${
-                        season.isCurrent
+                        season.id === currentSeasonId
                           ? "bg-gradient-to-r from-[#462C7D] to-[#D552A3] text-white shadow-lg shadow-[#831C91]/25"
                           : "bg-white/[0.06] text-white/50 hover:bg-white/[0.1] hover:text-white border border-white/[0.06]"
                       }`}
                     >
                       {season.seasonLabel}
-                      <span className={`ml-1.5 text-[9px] ${season.isCurrent ? "text-white/60" : "text-white/30"}`}>
+                      <span className={`ml-1.5 text-[9px] ${season.id === currentSeasonId ? "text-white/60" : "text-white/30"}`}>
                         ({season.totalEpisodes} eps)
                       </span>
                     </button>
@@ -245,53 +258,9 @@ export default function AnimeDetailPage() {
                 </div>
               )}
 
-              {/* Mobile: Episodes toggle + info */}
-              <div className="flex md:hidden items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  {selectedEp && (
-                    <span className="text-base font-bold text-white">Ep {selectedEp.episodeNum}</span>
-                  )}
-                </div>
-                <button onClick={() => setShowMobileEpisodes(!showMobileEpisodes)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-white/60 hover:text-white text-sm font-medium transition-all border border-white/[0.06]">
-                  <List className="w-4 h-4" />
-                  {showMobileEpisodes ? "Hide Episodes" : `Episodes (${episodes.length})`}
-                </button>
-              </div>
-
-              {/* Mobile: collapsible episode grid */}
-              <AnimatePresence>
-                {showMobileEpisodes && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="md:hidden overflow-hidden"
-                  >
-                    <div className="grid grid-cols-5 sm:grid-cols-7 gap-2">
-                      {episodes.map(ep => {
-                        const isSelected = selectedEp?.episodeId === ep.episodeId;
-                        const isUnreleased = ep.isReleased === false;
-                        return (
-                          <button key={ep.episodeId} onClick={() => handleSelectEp(ep)} disabled={isUnreleased}
-                            className={`aspect-square rounded-xl text-sm font-bold transition-all flex items-center justify-center ${
-                              isSelected ? "bg-gradient-to-r from-[#462C7D] to-[#D552A3] text-white shadow-lg" :
-                              isUnreleased ? "bg-white/[0.03] text-white/20 cursor-not-allowed" :
-                              "bg-white/[0.05] text-white/60 hover:bg-white/[0.09] hover:text-white"
-                            }`}>
-                            {isUnreleased ? <Lock className="w-3.5 h-3.5" /> : ep.episodeNum}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* SINGLE PLAYER */}
-              <div className="flex gap-6 items-start flex-col md:flex-row">
-                <div ref={playerRef} className="w-full md:flex-1 min-w-0">
+              {/* SINGLE FULL-WIDTH PLAYER & REDESIGNED SYNOPSIS/METADATA */}
+              <div className="flex flex-col gap-6">
+                <div ref={playerRef} className="w-full max-w-5xl mx-auto min-w-0">
                   {selectedEp && !episodesLoading && (
                     <motion.div
                       key={selectedEp.episodeId}
@@ -299,8 +268,10 @@ export default function AnimeDetailPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3 }}
                     >
+                      {/* Pass malId for highly reliable VidLink Sub/Dub streams */}
                       <AnimePlayer
                         animeId={currentSeasonId}
+                        malId={anime.idMal}
                         animeTitle={anime.name}
                         episode={selectedEp.episodeNum}
                         onAutoNext={handleAutoNext}
@@ -343,62 +314,185 @@ export default function AnimeDetailPage() {
                   )}
                 </div>
 
-                {/* Desktop Episode Sidebar */}
-                <div className="hidden md:flex w-80 xl:w-96 shrink-0 bg-white/[0.02] rounded-2xl border border-white/[0.06] overflow-hidden sticky top-6 max-h-[85vh] flex-col">
-                  <div className="p-4 border-b border-white/[0.06] flex items-center justify-between bg-white/[0.02]">
-                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                      <Tv2 className="w-4 h-4 text-[#D552A3]" />
-                      Episodes
-                      <span className="text-xs text-white/30 font-normal">({episodes.length})</span>
-                    </h3>
-                    {totalPages > 1 && (
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setCurrentPage(Math.max(0, currentPage - 1))} disabled={currentPage === 0}
-                          className="p-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] disabled:opacity-30 text-white/50 transition-all">
-                          <ChevronLeft className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="text-xs text-white/40 px-1.5 font-medium">{currentPage + 1}/{totalPages}</span>
-                        <button onClick={() => setCurrentPage(Math.min(totalPages - 1, currentPage + 1))} disabled={currentPage >= totalPages - 1}
-                          className="p-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] disabled:opacity-30 text-white/50 transition-all">
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    )}
+                {/* Structured Metadata & Synopsis Section */}
+                <div className="max-w-5xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+                  {/* Left Side: Synopsis */}
+                  <div className="md:col-span-2 space-y-4">
+                    <div className="bg-white/[0.02] border border-white/[0.06] p-6 rounded-2xl h-full">
+                      <h3 className="text-base font-bold text-white mb-3">Synopsis</h3>
+                      <p className="text-white/60 text-sm leading-relaxed whitespace-pre-line">{anime.description || "No synopsis available."}</p>
+                    </div>
                   </div>
-                  <div ref={episodeListRef} className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
-                    {episodesLoading ? (
-                      <div className="p-4 space-y-2">
-                        {Array.from({ length: 8 }).map((_, i) => (
-                          <div key={i} className="h-10 rounded-xl bg-white/[0.05] animate-pulse" />
-                        ))}
+
+                  {/* Right Side: Structured Metadata Grid */}
+                  <div>
+                    <div className="bg-white/[0.02] border border-white/[0.06] p-6 rounded-2xl space-y-4">
+                      <h3 className="text-base font-bold text-white">Details</h3>
+                      <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-xs">
+                        <div>
+                          <span className="text-white/40 block mb-1">Format</span>
+                          <span className="text-white font-bold text-sm bg-white/[0.06] px-2.5 py-1 rounded-lg uppercase">{anime.format || anime.type || "TV"}</span>
+                        </div>
+                        <div>
+                          <span className="text-white/40 block mb-1">Rating</span>
+                          <span className="text-amber-400 font-bold text-sm bg-amber-400/10 border border-amber-400/20 px-2.5 py-1 rounded-lg flex items-center gap-1 w-max">
+                            <Star className="w-3.5 h-3.5 fill-current" /> {anime.rating || anime.score || "N/A"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-white/40 block mb-1">Episodes</span>
+                          <span className="text-white font-semibold text-sm">{anime.totalEpisodes || episodes.length || "N/A"}</span>
+                        </div>
+                        <div>
+                          <span className="text-white/40 block mb-1">Status</span>
+                          <span className="text-white font-semibold text-sm">{anime.status || "N/A"}</span>
+                        </div>
+                        <div>
+                          <span className="text-white/40 block mb-1">Season</span>
+                          <span className="text-white font-semibold text-sm uppercase">{anime.season || "N/A"}</span>
+                        </div>
+                        <div>
+                          <span className="text-white/40 block mb-1">Year</span>
+                          <span className="text-white font-semibold text-sm">{anime.seasonYear || "N/A"}</span>
+                        </div>
                       </div>
-                    ) : episodeGroups[currentPage]?.length ? (
-                      episodeGroups[currentPage]?.map(ep => {
-                        const isSelected = selectedEp?.episodeId === ep.episodeId;
-                        const isUnreleased = ep.isReleased === false;
-                        return (
-                          <button key={ep.episodeId} onClick={() => handleSelectEp(ep)} disabled={isUnreleased}
-                            className={`w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center gap-3 ${
-                              isSelected ? "bg-gradient-to-r from-[#462C7D] to-[#D552A3] text-white shadow-lg shadow-[#831C91]/20" :
-                              isUnreleased ? "bg-white/[0.02] text-white/20 cursor-not-allowed" :
-                              "bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white"
-                            }`}>
-                            <span className={`text-sm font-black w-12 shrink-0 ${isSelected ? "text-white" : ""}`}>
-                              {isUnreleased ? <Lock className="w-4 h-4 mx-auto" /> : `Ep ${ep.episodeNum}`}
-                            </span>
-                            <span className="text-xs truncate flex-1 line-clamp-1">{ep.title || (isUnreleased ? "Not Yet Released" : "No title")}</span>
-                            {ep.isFiller && !isSelected && <span className="text-[9px] text-amber-400 font-bold shrink-0">FL</span>}
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <div className="p-4 text-center text-white/30 text-sm">
-                        {episodesLoading ? "Loading..." : "No episodes available"}
-                      </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Visually Stunning Episodes Section (Below the Player) */}
+              <section className="max-w-5xl mx-auto space-y-4 mt-10">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-1.5 h-6 bg-gradient-to-b from-[#D552A3] to-[#831C91] rounded-full shadow-lg" />
+                    <h2 className="text-2xl font-black text-white tracking-tight">Episodes</h2>
+                    <span className="text-xs bg-white/[0.06] text-white/50 px-2.5 py-1 rounded-full font-semibold">
+                      {episodes.length} Available
+                    </span>
+                  </div>
+
+                  {/* Range Tabs Selector (Jump directly between sets of 30 episodes) */}
+                  {totalPages > 1 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {Array.from({ length: totalPages }).map((_, idx) => {
+                        const start = idx * 30 + 1;
+                        const end = Math.min((idx + 1) * 30, episodes.length);
+                        const isCurrentPage = currentPage === idx;
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => setCurrentPage(idx)}
+                            className={cn(
+                              "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                              isCurrentPage 
+                                ? "bg-gradient-to-r from-[#831C91] to-[#D552A3] text-white shadow-md shadow-[#831C91]/25" 
+                                : "bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white"
+                            )}
+                          >
+                            {start}-{end}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {episodesLoading ? (
+                  <div className="space-y-3 pt-2">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="h-28 rounded-2xl bg-white/[0.03] animate-pulse" />
+                    ))}
+                  </div>
+                ) : episodeGroups[currentPage]?.length ? (
+                  <div className="space-y-3 pt-2">
+                    {episodeGroups[currentPage].map((ep) => {
+                      const isSelected = selectedEp?.episodeId === ep.episodeId;
+                      const isUnreleased = ep.isReleased === false;
+                      return (
+                        <div
+                          key={ep.episodeId}
+                          onClick={() => !isUnreleased && handleSelectEp(ep)}
+                          className={cn(
+                            "group flex gap-4 p-3.5 rounded-2xl border transition-all duration-300 cursor-pointer select-none touch-manipulation",
+                            isSelected 
+                              ? "ring-2 ring-[#D552A3] bg-gradient-to-br from-[#831C91]/15 to-[#D552A3]/10 border-transparent shadow-lg shadow-[#831C91]/20" 
+                              : isUnreleased
+                              ? "opacity-50 cursor-not-allowed bg-white/[0.01] border-white/[0.03]"
+                              : "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.07] hover:border-white/[0.12]"
+                          )}
+                        >
+                          {/* Episode Number Box (Desktop) */}
+                          <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-lg bg-white/[0.05] shrink-0 self-start mt-1">
+                            <span className="text-sm font-bold text-white/40">{ep.episodeNum}</span>
+                          </div>
+
+                          {/* Cover Thumbnail aspect-video */}
+                          <div className="w-36 md:w-48 shrink-0 aspect-video rounded-xl overflow-hidden bg-muted relative self-start">
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent z-10" />
+                            
+                            {/* Stylized background using anime poster */}
+                            <div 
+                              className="absolute inset-0 bg-cover bg-center opacity-35 blur-[0.5px] group-hover:scale-105 transition-transform duration-500" 
+                              style={{ backgroundImage: `url(${anime.poster})` }} 
+                            />
+                            
+                            {/* Play Overlay */}
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#831C91] to-[#D552A3] flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform duration-300">
+                                <Play className="w-4 h-4 fill-white text-white ml-0.5" />
+                              </div>
+                            </div>
+
+                            {/* Playing Badge */}
+                            {isSelected && (
+                              <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded bg-[#D552A3] text-white text-[8px] font-extrabold tracking-widest uppercase">
+                                Playing
+                              </div>
+                            )}
+
+                            {/* Lock Icon for Unreleased */}
+                            {isUnreleased && (
+                              <div className="absolute inset-0 z-20 bg-black/80 flex items-center justify-center">
+                                <Lock className="w-5 h-5 text-white/30" />
+                              </div>
+                            )}
+
+                            {/* EP tag bottom right */}
+                            {!isUnreleased && (
+                              <div className="absolute bottom-2 right-2 z-20 px-2 py-0.5 rounded bg-black/75 backdrop-blur-sm text-white/90 text-[10px] font-black">
+                                EP {ep.episodeNum}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Episode Details */}
+                          <div className="flex-1 min-w-0 py-0.5">
+                            <div className="flex items-start justify-between gap-2 mb-1.5">
+                              <h4 className="font-bold text-sm leading-tight text-white flex items-center gap-2">
+                                <span className="sm:hidden text-white/40">E{ep.episodeNum}.</span>
+                                <span>{ep.title || `Episode ${ep.episodeNum}`}</span>
+                                {ep.isFiller && (
+                                  <span className="text-[9px] text-amber-400 font-extrabold uppercase bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded">
+                                    Filler
+                                  </span>
+                                )}
+                              </h4>
+                            </div>
+                            <p className="text-white/45 text-xs leading-relaxed line-clamp-2">
+                              {ep.description || `Watch Episode ${ep.episodeNum} of ${anime.name} in high quality with English subtitles.`}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-white/30 text-sm">
+                    No episodes available
+                  </div>
+                )}
+              </section>
             </div>
           </>
         ) : null}

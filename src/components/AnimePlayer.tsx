@@ -12,14 +12,26 @@ interface Source {
 
 interface AnimePlayerProps {
   animeId: string;
+  malId?: string | null;
   animeTitle: string;
   episode: number;
   onAutoNext?: () => void;
 }
 
-function buildSources(animeId: string, episode: number): Source[] {
+function buildSources(animeId: string, malId: string | null | undefined, episode: number): Source[] {
   const numericId = animeId.replace(/\D/g, "");
+  const activeMalId = malId ? malId.trim() : numericId;
   return [
+    {
+      name: "VidLink (Sub)",
+      url: `https://vidlink.pro/anime/${activeMalId}/${episode}/sub`,
+      color: "from-[#312e81]/40 to-[#4f46e5]/20",
+    },
+    {
+      name: "VidLink (Dub)",
+      url: `https://vidlink.pro/anime/${activeMalId}/${episode}/dub`,
+      color: "from-[#4f46e5]/30 to-[#ec4899]/10",
+    },
     {
       name: "AnimePahe",
       url: `https://vidnest.fun/animepahe/${numericId}/${episode}/sub`,
@@ -33,8 +45,8 @@ function buildSources(animeId: string, episode: number): Source[] {
   ];
 }
 
-export function AnimePlayer({ animeId, animeTitle, episode, onAutoNext }: AnimePlayerProps) {
-  const sources = buildSources(animeId, episode);
+export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }: AnimePlayerProps) {
+  const sources = buildSources(animeId, malId, episode);
   const [sourceIndex, setSourceIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -57,17 +69,6 @@ export function AnimePlayer({ animeId, animeTitle, episode, onAutoNext }: AnimeP
     }
   }, [episode]);
 
-  // Auto-switch source if iframe takes too long (15s timeout)
-  useEffect(() => {
-    if (!isLoading || hasError) return;
-    timerRef.current = setTimeout(() => {
-      if (isLoading && !hasError) {
-        switchSource();
-      }
-    }, 15000);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [isLoading, hasError, sourceIndex]);
-
   const switchSource = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     const next = (sourceIndex + 1) % sources.length;
@@ -75,6 +76,17 @@ export function AnimePlayer({ animeId, animeTitle, episode, onAutoNext }: AnimeP
     setIsLoading(true);
     setHasError(false);
   }, [sourceIndex, sources.length]);
+
+  // Auto-switch source if iframe takes too long (7s timeout)
+  useEffect(() => {
+    if (!isLoading || hasError) return;
+    timerRef.current = setTimeout(() => {
+      if (isLoading && !hasError) {
+        switchSource();
+      }
+    }, 7000);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [isLoading, hasError, sourceIndex, switchSource]);
 
   const toggleFullscreen = async () => {
     try {
@@ -148,9 +160,9 @@ export function AnimePlayer({ animeId, animeTitle, episode, onAutoNext }: AnimeP
       </motion.div>
 
       <div className="flex items-center justify-between gap-2 text-[10px] text-white/20">
-        <span>Japanese audio with English subtitles</span>
+        <span>Japanese / English audio with English subtitles</span>
         <button onClick={switchSource} className="text-white/30 hover:text-[#D552A3] transition-colors">
-          {sourceIndex === 0 ? "Switch to VidNest" : "Switch to AnimePahe"}
+          Next Source ({sources[(sourceIndex + 1) % sources.length].name})
         </button>
       </div>
     </div>

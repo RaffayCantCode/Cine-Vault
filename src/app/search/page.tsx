@@ -121,7 +121,7 @@ export default function SearchPage() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-1.5 rounded-xl text-sm font-semibold transition-all duration-200 capitalize ${
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 capitalize touch-manipulation ${
                   activeTab === tab
                     ? tab === "anime"
                       ? "bg-[#831C91] text-white shadow-lg shadow-[#831C91]/20"

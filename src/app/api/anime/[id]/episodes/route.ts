@@ -18,6 +18,7 @@ export async function GET(
       title: ep.title || `Episode ${ep.episodeNum || 1}`,
       isFiller: ep.isFiller || false,
       releasedDate: ep.releasedDate || null,
+      description: ep.description || null,
     }));
 
     return Response.json({
