@@ -99,16 +99,16 @@ export default function SearchPage() {
     <div className="min-h-screen bg-background text-foreground pb-20">
       <Sidebar />
 
-      <main className="md:pl-56 lg:pl-64 pt-6">
+      <main className="md:pl-56 lg:pl-64 pt-6 md:pt-10">
       <div className="px-6 md:px-12 max-w-screen-2xl mx-auto">
-        <div className="relative max-w-3xl mx-auto mb-10">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <SearchIcon className="h-6 w-6 text-muted-foreground" />
+        <div className="relative max-w-3xl mx-auto mb-12">
+          <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+            <SearchIcon className="h-6 w-6 text-white/30" />
           </div>
           <Input
             ref={inputRef}
             type="text"
-            className="w-full h-16 pl-12 pr-4 bg-secondary/50 border-secondary/50 text-xl rounded-2xl focus-visible:ring-primary focus-visible:ring-offset-0 text-white placeholder:text-muted-foreground/70"
+            className="w-full h-16 pl-14 pr-4 premium-glass text-xl rounded-2xl focus-visible:ring-[#D552A3] focus-visible:ring-offset-0 text-white placeholder:text-white/30"
             placeholder="Search movies, TV shows & anime..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -144,15 +144,17 @@ export default function SearchPage() {
         )}
 
         {debouncedQuery.length < 2 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
-            <MonitorPlay className="w-16 h-16 mb-4 opacity-20" />
-            <h3 className="text-xl font-medium text-white mb-2">Find something to watch</h3>
-            <p>Search movies, TV shows, and <span className="text-[#D552A3] font-semibold">anime (🇯🇵 Japanese dub)</span> all in one place.</p>
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="premium-glass w-20 h-20 rounded-2xl flex items-center justify-center mb-6">
+              <MonitorPlay className="w-10 h-10 text-white/30" />
+            </div>
+            <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Find something to watch</h3>
+            <p className="text-white/40 max-w-md">Search movies, TV shows, and <span className="text-[#D552A3] font-semibold">anime</span> all in one place.</p>
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
-            <h3 className="text-xl font-medium text-white mb-2">Search is unavailable</h3>
-            <p className="max-w-xl break-words">{error}</p>
+          <div className="premium-glass max-w-lg mx-auto p-8 rounded-2xl text-center">
+            <h3 className="text-lg font-bold text-white mb-2">Search unavailable</h3>
+            <p className="text-sm text-white/50">{error}</p>
           </div>
         ) : isLoading || animeLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">

@@ -159,18 +159,21 @@ export default function Home() {
           </div>
         )}
 
-        <div className="px-5 md:px-10 lg:px-12 max-w-screen-2xl mx-auto py-8 space-y-8">
-          <section className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-1.5 h-6 bg-gradient-to-b from-[#D552A3] to-[#831C91] rounded-full shadow-lg shadow-[#D552A3]/20" />
-              <h2 className="text-2xl font-black text-white tracking-tight">Genres</h2>
+        <div className="px-5 md:px-10 lg:px-12 max-w-screen-2xl mx-auto py-10 space-y-10">
+          <section className="space-y-4">
+            <div className="flex items-center gap-3 group">
+              <div className="w-1.5 h-7 bg-gradient-to-b from-[#D552A3] to-[#831C91] rounded-full shadow-lg shadow-[#D552A3]/20 group-hover:shadow-[#D552A3]/40 transition-shadow" />
+              <div>
+                <h2 className="text-2xl font-black text-white tracking-tight">Genres</h2>
+                <p className="text-[10px] text-white/30 font-medium tracking-wider uppercase">Browse by category</p>
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               {genres.map((genre) => (
                 <Link
                   key={genre.id}
                   href={`/browse/genre/${genre.id}`}
-                  className="px-3 py-2 rounded-xl bg-white/[0.06] text-sm text-white/80 hover:bg-white/[0.12] hover:text-[#D552A3] transition-all"
+                  className="hover-lift premium-glass px-4 py-2.5 rounded-xl text-sm text-white/70 hover:text-[#D552A3] transition-all"
                 >
                   {genre.name}
                 </Link>
@@ -178,19 +181,20 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-1.5 h-6 bg-gradient-to-b from-[#D552A3] to-[#831C91] rounded-full shadow-lg shadow-[#D552A3]/20" />
-              <h2 className="text-2xl font-black text-white tracking-tight">
-                Franchise Collections
-              </h2>
+          <section className="space-y-4">
+            <div className="flex items-center gap-3 group">
+              <div className="w-1.5 h-7 bg-gradient-to-b from-[#D552A3] to-[#831C91] rounded-full shadow-lg shadow-[#D552A3]/20 group-hover:shadow-[#D552A3]/40 transition-shadow" />
+              <div>
+                <h2 className="text-2xl font-black text-white tracking-tight">Franchise Collections</h2>
+                <p className="text-[10px] text-white/30 font-medium tracking-wider uppercase">Curated universes</p>
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               {FRANCHISES.map((name) => (
                 <Link
                   key={name}
                   href={`/browse/franchise/${encodeURIComponent(name)}`}
-                  className="px-3 py-2 rounded-xl bg-[#831C91]/20 border border-[#D552A3]/30 text-sm text-[#D552A3] hover:bg-[#831C91]/30 hover:text-white transition-all"
+                  className="hover-lift px-4 py-2.5 rounded-xl bg-[#831C91]/20 border border-[#D552A3]/25 text-sm text-[#D552A3] hover:bg-[#831C91]/35 hover:text-white hover:border-[#D552A3]/50 transition-all"
                 >
                   {name}
                 </Link>

@@ -41,15 +41,15 @@ export default function LoginPage() {
       <Sidebar />
 
       <main className="md:pl-56 lg:pl-64">
-      <div className="pt-12 px-6 md:px-12 max-w-screen-xl mx-auto">
+      <div className="pt-12 md:pt-16 px-6 md:px-12 max-w-screen-xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="max-w-md mx-auto"
+          className="max-w-md mx-auto premium-glass p-8 rounded-2xl"
         >
           <h1 className="text-3xl font-bold text-white mb-2 text-center">Welcome back</h1>
-          <p className="text-white/50 text-center mb-8">Sign in to continue watching</p>
+          <p className="text-white/40 text-center mb-8">Sign in to continue watching</p>
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg mb-6 text-sm">

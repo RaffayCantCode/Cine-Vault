@@ -82,14 +82,19 @@ export function BrowseGridPage({ title, description, endpoint, mediaType }: Brow
   return (
     <div className="min-h-screen bg-background text-foreground pb-20">
       <Sidebar />
-      <main className="md:pl-56 lg:pl-64 pt-6">
+      <main className="md:pl-56 lg:pl-64 pt-6 md:pt-10">
         <div className="px-6 md:px-12 max-w-screen-2xl mx-auto">
-          <div className="mb-10">
-            <h1 className="text-4xl font-bold text-white">{title}</h1>
+          <div className="mb-12">
+            <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">{title}</h1>
             {description ? <p className="text-sm text-white/40 mt-2">{description}</p> : null}
+            <div className="h-0.5 w-16 bg-gradient-to-r from-[#D552A3] to-[#831C91] rounded-full mt-3" />
           </div>
 
-          {error && <div className="mb-6 text-sm text-[#D552A3]">{error}</div>}
+          {error && (
+            <div className="mb-8 premium-glass p-4 rounded-xl text-sm text-[#D552A3]">
+              {error}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
             {items.map((item, idx) => (
@@ -98,12 +103,21 @@ export function BrowseGridPage({ title, description, endpoint, mediaType }: Brow
               </div>
             ))}
             {isLoading && items.length === 0 && Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="aspect-[2/3] w-full rounded-lg bg-muted/50 animate-pulse" />
+              <div key={i} className="aspect-[2/3] w-full rounded-xl premium-glass skeleton-pulse" />
             ))}
           </div>
 
-          <div ref={sentinelRef} className="h-20 flex items-center justify-center text-white/50 text-sm">
-            {isLoading && items.length > 0 ? "Loading more..." : hasMore ? "Scroll for more" : "End of results"}
+          <div ref={sentinelRef} className="h-20 flex items-center justify-center text-white/40 text-sm font-medium">
+            {isLoading && items.length > 0 ? (
+              <span className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#D552A3] animate-pulse" />
+                Loading more...
+              </span>
+            ) : hasMore ? (
+              <span className="text-white/20">Scroll to load more</span>
+            ) : (
+              <span className="text-white/10">End of results</span>
+            )}
           </div>
         </div>
       </main>

@@ -77,7 +77,7 @@ function buildEmbedUrl(api: StreamingAPIConfig, type: "movie" | "tv", id: number
       if (type === "movie") {
         return `${api.baseUrl}/embed/${id}`;
       }
-      return `${api.baseUrl}/embed/${id}/${season ?? 1}/${episode ?? 1}`;
+      return `${api.baseUrl}/embedtv/${id}?s=${season ?? 1}&e=${episode ?? 1}`;
 
     case "autoembed":
       if (type === "movie") {

@@ -28,9 +28,10 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showSources, setShowSources] = useState(false);
+  const [showFallbackHint, setShowFallbackHint] = useState(false);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentStyle = SOURCE_STYLES[currentSource?.type] || SOURCE_STYLES.cinesrc;
 
@@ -45,41 +46,40 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
     setError(null);
     setIsLoading(true);
     setShowSources(false);
+    setShowFallbackHint(false);
   };
 
-  const handleIframeError = useCallback(() => {
+  const switchToNext = useCallback(() => {
     const currentIndex = sources.findIndex((s) => s.name === currentSource.name);
     const nextSource = sources[currentIndex + 1];
     if (nextSource) {
-      setError(`${currentSource.name} failed, trying ${nextSource.name}...`);
+      setCurrentSource(nextSource);
+      setError(null);
       setIsLoading(true);
-      setTimeout(() => {
-        setCurrentSource(nextSource);
-        setError(null);
-      }, 1200);
+      setShowFallbackHint(false);
     } else {
       setIsLoading(false);
       setError("All streaming sources failed. Please try again later.");
     }
   }, [sources, currentSource]);
 
+  const handleIframeError = useCallback(() => {
+    setIsLoading(false);
+    setError(`${currentSource.name} failed to load.`);
+  }, [currentSource]);
+
   useEffect(() => {
-    if (!isLoading) {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      return;
+    if (isLoading) {
+      fallbackTimerRef.current = setTimeout(() => {
+        setShowFallbackHint(true);
+      }, 5000);
+    } else {
+      setShowFallbackHint(false);
     }
-
-    // 7 seconds loading timeout before auto-switching
-    timeoutRef.current = setTimeout(() => {
-      if (isLoading) {
-        handleIframeError();
-      }
-    }, 7000);
-
     return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
     };
-  }, [isLoading, currentSource, handleIframeError]);
+  }, [isLoading, currentSource]);
 
   const requestFullscreen = async () => {
     const el = playerContainerRef.current;
@@ -91,7 +91,14 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
         await (el as any).webkitRequestFullscreen();
       }
     } catch {
-      setError("Fullscreen was blocked. Use the player's built-in fullscreen button inside the video.");
+      // fallback: try the iframe's built-in fullscreen
+      try {
+        if (iframeRef.current?.requestFullscreen) {
+          await iframeRef.current.requestFullscreen();
+        }
+      } catch {
+        setError("Fullscreen was blocked. Use the player's built-in fullscreen button inside the video.");
+      }
     }
   };
 
@@ -167,7 +174,7 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
         ref={playerContainerRef}
         className="w-full aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black ring-1 ring-white/10 relative"
       >
-        {error && !error.includes("trying") ? (
+        {error ? (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-black via-zinc-900 to-black">
             <div className="text-center p-8 max-w-sm">
               <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-red-500/10 flex items-center justify-center">
@@ -176,16 +183,22 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
               <p className="text-white/60 text-sm mb-5 font-medium">{error}</p>
               <div className="flex items-center justify-center gap-3">
                 <button
-                  onClick={() => { setError(null); setCurrentSource(sources[0]); }}
+                  onClick={() => { setError(null); setCurrentSource(sources[0]); setIsLoading(true); }}
                   className="px-5 py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2"
                 >
                   <RotateCcw className="w-4 h-4" /> Try Again
                 </button>
                 <button
-                  onClick={() => setShowSources(true)}
-                  className="px-5 py-2.5 bg-[#831C91] hover:bg-[#831C91] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2"
+                  onClick={switchToNext}
+                  className="px-5 py-2.5 bg-[#831C91] hover:bg-[#D552A3] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2"
                 >
-                  <Server className="w-4 h-4" /> Change Source
+                  <RotateCcw className="w-4 h-4" /> Switch Source
+                </button>
+                <button
+                  onClick={() => setShowSources(true)}
+                  className="px-5 py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2"
+                >
+                  <Server className="w-4 h-4" /> Browse All
                 </button>
               </div>
             </div>
@@ -196,9 +209,17 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
               <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
                 <div className="text-center">
                   <div className="w-14 h-14 border-4 border-white/10 border-t-[#831C91] rounded-full animate-spin mx-auto mb-4" />
-                  <p className="text-white/60 text-sm font-medium">
+                  <p className="text-white/60 text-sm font-medium mb-4">
                     {error || `Loading ${currentSource?.name || "player"}...`}
                   </p>
+                  {showFallbackHint && (
+                    <button
+                      onClick={switchToNext}
+                      className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 mx-auto"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" /> Not working? Switch to next source
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -206,7 +227,7 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
               ref={iframeRef}
               src={currentSource.url}
               className="w-full h-full"
-              allow="autoplay; fullscreen; picture-in-picture; encrypted-media; web-share"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture; web-share"
               allowFullScreen={true}
               title={title || "Watch"}
               onLoad={() => setIsLoading(false)}
@@ -217,7 +238,7 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
       </motion.div>
 
       <p className="text-xs text-white/40 text-center">
-        Source fallback is automatic. Use the player&apos;s built-in fullscreen button inside the video for best results.
+        Source not loading? Click &quot;Switch to next source&quot; above or pick one manually from the source list.
       </p>
     </div>
   );
