@@ -110,8 +110,6 @@ export function formatDate(dateString: string): string {
   });
 }
 
-const ADULT_GENRE_IDS = [1, 10770];
-
 const ADULT_KEYWORDS = [
   "porn", "adult", "erotic", "sex", "nude", "nudity", "explicit",
   "hardcore", "softcore", "xxx", "mature", "nsfw",
@@ -131,10 +129,6 @@ export function filterReleasedSafeContent<T extends {
 
   return items.filter((item) => {
     if (item.adult === true) return false;
-
-    if (item.genre_ids && item.genre_ids.some((id) => ADULT_GENRE_IDS.includes(id))) {
-      return false;
-    }
 
     const textToCheck = `${item.title || ""} ${item.name || ""} ${item.overview || ""}`.toLowerCase();
     if (ADULT_KEYWORDS.some((keyword) => textToCheck.includes(keyword))) {

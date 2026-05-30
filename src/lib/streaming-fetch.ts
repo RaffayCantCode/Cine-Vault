@@ -2,42 +2,50 @@ interface StreamingAPIConfig {
   name: string;
   baseUrl: string;
   type: string;
+  quality: "Best" | "HD" | "Backup";
   supportsNativeFullscreen?: boolean;
 }
 
 const STREAMING_APIS: StreamingAPIConfig[] = [
   {
-    name: "CineSrc",
-    baseUrl: "https://cinesrc.st",
-    type: "cinesrc",
-  },
-  {
-    name: "VidSrc (MOV)",
-    baseUrl: "https://vidsrc.mov",
-    type: "vidsrcmov",
+    name: "Embed.su",
+    baseUrl: "https://embed.su",
+    type: "embedsu",
+    quality: "Best",
+    supportsNativeFullscreen: true,
   },
   {
     name: "VIDKING",
     baseUrl: "https://vidking.net",
     type: "vidking",
+    quality: "Best",
+    supportsNativeFullscreen: true,
+  },
+  {
+    name: "VidSrc",
+    baseUrl: "https://vidsrc.mov",
+    type: "vidsrcmov",
+    quality: "HD",
+  },
+  {
+    name: "MultiEmbed",
+    baseUrl: "https://multiembed.mov",
+    type: "multiembed",
+    quality: "HD",
+    supportsNativeFullscreen: true,
+  },
+  {
+    name: "CineSrc",
+    baseUrl: "https://cinesrc.st",
+    type: "cinesrc",
+    quality: "HD",
     supportsNativeFullscreen: true,
   },
   {
     name: "2Embed",
     baseUrl: "https://2embed.cc",
     type: "2embed",
-  },
-  {
-    name: "MultiEmbed",
-    baseUrl: "https://multiembed.mov",
-    type: "multiembed",
-    supportsNativeFullscreen: true,
-  },
-  {
-    name: "Embed.su",
-    baseUrl: "https://embed.su",
-    type: "embedsu",
-    supportsNativeFullscreen: true,
+    quality: "Backup",
   },
 ];
 
@@ -94,6 +102,7 @@ export interface StreamingSource {
   url: string;
   name: string;
   type: string;
+  quality: "Best" | "HD" | "Backup";
   supportsNativeFullscreen?: boolean;
 }
 
@@ -102,6 +111,7 @@ export function getStreamingSources(type: "movie" | "tv", id: number, season?: n
     url: buildEmbedUrl(api, type, id, season, episode),
     name: api.name,
     type: api.type,
+    quality: api.quality,
     supportsNativeFullscreen: api.supportsNativeFullscreen,
   }));
 }

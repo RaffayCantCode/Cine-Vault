@@ -2,12 +2,11 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Server, Maximize2, Info, RotateCcw } from "lucide-react";
+import { Server, Maximize2, RotateCcw, SkipForward } from "lucide-react";
 
 interface Source {
   name: string;
-  primaryUrl: string;
-  fallbackUrl: string;
+  urls: string[];
   color: string;
 }
 
@@ -20,10 +19,9 @@ interface AnimePlayerProps {
 }
 
 function buildSources(animeId: string, malId: string | null | undefined, episode: number): Source[] {
-  const numericId = animeId.replace(/\D/g, "");
-  const activeMalId = malId ? malId.trim() : numericId;
-  // build url helper
-  const p = (base: string, id: string) => base.replace("{id}", id);
+  const ids = Array.from(
+    new Set([animeId.replace(/\D/g, ""), malId?.trim()].filter((id): id is string => Boolean(id)))
+  );
 
   const sourceDefs: { name: string; urlTpl: string; color: string }[] = [
     { name: "AnimePahe", urlTpl: `https://vidnest.fun/animepahe/{id}/${episode}/sub?quality=1080`, color: "from-[#462C7D]/30 to-[#831C91]/20" },
@@ -34,8 +32,7 @@ function buildSources(animeId: string, malId: string | null | undefined, episode
 
   return sourceDefs.map(s => ({
     name: s.name,
-    primaryUrl: p(s.urlTpl, numericId),
-    fallbackUrl: p(s.urlTpl, activeMalId),
+    urls: ids.map((id) => s.urlTpl.replace("{id}", id)),
     color: s.color,
   }));
 }
@@ -45,21 +42,24 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
   const [sourceIndex, setSourceIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [usedFallback, setUsedFallback] = useState(false);
+  const [urlIndex, setUrlIndex] = useState(0);
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentSource = sources[sourceIndex];
-  const currentUrl = usedFallback ? currentSource.fallbackUrl : currentSource.primaryUrl;
+  const currentUrl = currentSource.urls[urlIndex] || currentSource.urls[0];
+  const hasBackupId = currentSource.urls.length > 1;
+  const isBackupId = urlIndex > 0;
+  const nextSourceName = sources[(sourceIndex + 1) % sources.length].name;
 
   useEffect(() => {
     setIsLoading(true);
     setHasError(false);
-    setUsedFallback(false);
+    setUrlIndex(0);
     setSourceIndex(0);
-  }, [episode]);
+  }, [animeId, malId, episode]);
 
   useEffect(() => {
     if (playerRef.current) {
@@ -67,12 +67,12 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
     }
   }, [episode]);
 
-  const tryFallback = useCallback(() => {
-    setUsedFallback(true);
+  const tryNextId = useCallback(() => {
+    setUrlIndex((current) => Math.min(current + 1, currentSource.urls.length - 1));
     setIsLoading(true);
     setHasError(false);
     if (timerRef.current) clearTimeout(timerRef.current);
-  }, []);
+  }, [currentSource.urls.length]);
 
   const switchSource = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -80,19 +80,19 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
     setSourceIndex(next);
     setIsLoading(true);
     setHasError(false);
-    setUsedFallback(false);
+    setUrlIndex(0);
   }, [sourceIndex, sources.length]);
 
-  // Auto-fallback within same source if primary takes too long (6s)
+  // Auto-try the backup ID within the same source if the primary ID takes too long.
   useEffect(() => {
-    if (!isLoading || hasError || usedFallback) return;
+    if (!isLoading || hasError || urlIndex >= currentSource.urls.length - 1) return;
     timerRef.current = setTimeout(() => {
-      if (isLoading && !hasError && !usedFallback) {
-        tryFallback();
+      if (isLoading && !hasError) {
+        tryNextId();
       }
     }, 6000);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [isLoading, hasError, usedFallback, tryFallback]);
+  }, [isLoading, hasError, urlIndex, currentSource.urls.length, tryNextId]);
 
   const toggleFullscreen = async () => {
     try {
@@ -114,9 +114,9 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/10">
             <span className="text-xs font-bold text-white/85">{currentSource.name}</span>
-            {usedFallback && !hasError && (
+            {isBackupId && !hasError && (
               <span className="text-[9px] text-amber-400 bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded font-bold">
-                Fallback
+                Backup ID
               </span>
             )}
           </div>
@@ -127,6 +127,14 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
           )}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={switchSource}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.08] hover:bg-[#831C91] border border-white/10 hover:border-[#D552A3]/40 text-white/80 hover:text-white text-xs font-bold transition-all"
+            title={`Next source: ${nextSourceName}`}
+          >
+            <SkipForward className="w-4 h-4" />
+            Next Source
+          </button>
           <button onClick={switchSource} className="p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-white/50 hover:text-white transition-all" title="Next source">
             <RotateCcw className="w-4 h-4" />
           </button>
@@ -138,7 +146,7 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
 
       <motion.div
         ref={playerRef}
-        key={`${episode}-${sourceIndex}-${usedFallback ? 1 : 0}`}
+        key={`${episode}-${sourceIndex}-${urlIndex}`}
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.2 }}
@@ -151,13 +159,13 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
                 <RotateCcw className="w-5 h-5 text-red-400/60" />
               </div>
               <p className="text-white/50 text-sm font-medium mb-4">
-                {currentSource.name} unavailable with both IDs
+                {currentSource.name} unavailable{hasBackupId ? " with both IDs" : ""}
               </p>
               <button
                 onClick={switchSource}
                 className="px-4 py-2 bg-[#831C91] hover:bg-[#D552A3] text-white rounded-xl text-xs font-bold transition-all"
               >
-                Switch to next source
+                Next Source
               </button>
             </div>
           </div>
@@ -168,7 +176,7 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
                 <div className="text-center">
                   <div className="w-10 h-10 border-3 border-white/10 border-t-[#D552A3] rounded-full animate-spin mx-auto mb-3" />
                   <p className="text-white/50 text-sm font-medium">
-                    {usedFallback ? `${currentSource.name} (backup ID)...` : `${currentSource.name}...`}
+                    {isBackupId ? `${currentSource.name} (backup ID)...` : `${currentSource.name}...`}
                   </p>
                 </div>
               </div>
@@ -183,8 +191,8 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
               onLoad={() => { setIsLoading(false); setHasError(false); if (timerRef.current) clearTimeout(timerRef.current); }}
               onError={() => {
                 if (timerRef.current) clearTimeout(timerRef.current);
-                if (!usedFallback) {
-                  tryFallback();
+                if (urlIndex < currentSource.urls.length - 1) {
+                  tryNextId();
                 } else {
                   setHasError(true);
                   setIsLoading(false);
@@ -216,7 +224,7 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
                   setSourceIndex(index);
                   setIsLoading(true);
                   setHasError(false);
-                  setUsedFallback(false);
+                  setUrlIndex(0);
                 }}
                 className={`flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all text-xs font-medium ${
                   isActive
@@ -241,7 +249,7 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
       <div className="flex items-center justify-between gap-2 text-[10px] text-white/20">
         <span>Each source automatically tries both AniList and MAL IDs</span>
         <button onClick={switchSource} className="text-white/30 hover:text-[#D552A3] transition-colors">
-          Next Source ({sources[(sourceIndex + 1) % sources.length].name})
+          Next Source ({nextSourceName})
         </button>
       </div>
     </div>

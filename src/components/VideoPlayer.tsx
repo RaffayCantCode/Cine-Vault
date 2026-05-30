@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, Check, Server, Maximize2, ChevronRight, RotateCcw, Loader2 } from "lucide-react";
+import { AlertCircle, Check, Server, Maximize2, ChevronRight, RotateCcw, Loader2, SkipForward } from "lucide-react";
 import { StreamingSource, getStreamingSources } from "@/lib/streaming-fetch";
 
 interface VideoPlayerProps {
@@ -20,6 +20,12 @@ const SOURCE_STYLES: Record<string, { bg: string; badge: string }> = {
   "2embed": { bg: "bg-amber-600", badge: "bg-amber-500/20 text-amber-300" },
   multiembed: { bg: "bg-emerald-600", badge: "bg-emerald-500/20 text-emerald-300" },
   embedsu: { bg: "bg-blue-600", badge: "bg-blue-500/20 text-blue-300" },
+};
+
+const QUALITY_STYLES: Record<StreamingSource["quality"], string> = {
+  Best: "bg-emerald-400/15 text-emerald-300 border-emerald-300/25",
+  HD: "bg-cyan-400/15 text-cyan-300 border-cyan-300/25",
+  Backup: "bg-amber-400/15 text-amber-300 border-amber-300/25",
 };
 
 export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerProps) {
@@ -51,16 +57,12 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
 
   const switchToNext = useCallback(() => {
     const currentIndex = sources.findIndex((s) => s.name === currentSource.name);
-    const nextSource = sources[currentIndex + 1];
-    if (nextSource) {
-      setCurrentSource(nextSource);
-      setError(null);
-      setIsLoading(true);
-      setShowFallbackHint(false);
-    } else {
-      setIsLoading(false);
-      setError("All streaming sources failed. Please try again later.");
-    }
+    const nextSource = sources[(currentIndex + 1) % sources.length] || sources[0];
+    setCurrentSource(nextSource);
+    setError(null);
+    setIsLoading(true);
+    setShowFallbackHint(false);
+    setShowSources(false);
   }, [sources, currentSource]);
 
   const handleIframeError = useCallback(() => {
@@ -80,6 +82,20 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
       if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
     };
   }, [isLoading, currentSource]);
+
+  useEffect(() => {
+    const frame = iframeRef.current;
+    if (!frame) return;
+
+    frame.setAttribute(
+      "allow",
+      "accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen *; gyroscope; picture-in-picture; web-share"
+    );
+    frame.setAttribute("allowfullscreen", "true");
+    frame.setAttribute("webkitallowfullscreen", "true");
+    frame.setAttribute("mozallowfullscreen", "true");
+    frame.setAttribute("referrerpolicy", "origin");
+  }, [currentSource.url]);
 
   const requestFullscreen = async () => {
     const el = playerContainerRef.current;
@@ -113,7 +129,20 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
           >
             <Server className="w-4 h-4" />
             {currentSource?.name || "Select Source"}
+            {currentSource?.quality && (
+              <span className={`rounded-md border px-1.5 py-0.5 text-[9px] leading-none ${QUALITY_STYLES[currentSource.quality]}`}>
+                {currentSource.quality}
+              </span>
+            )}
             <ChevronRight className={`w-4 h-4 transition-transform ${showSources ? "rotate-90" : ""}`} />
+          </button>
+          <button
+            onClick={switchToNext}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.08] hover:bg-[#831C91] border border-white/10 hover:border-[#D552A3]/40 text-white/80 hover:text-white text-xs font-bold transition-all"
+            title={`Next source: ${sources[(sources.findIndex((s) => s.name === currentSource.name) + 1) % sources.length]?.name || sources[0]?.name}`}
+          >
+            <SkipForward className="w-4 h-4" />
+            Next Source
           </button>
         </div>
         <div className="flex items-center gap-2">
@@ -158,6 +187,9 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
                 >
                   <Server className={`w-4 h-4 shrink-0 ${isActive ? "" : "text-white/30"}`} />
                   <span className="flex-1 text-left">{source.name}</span>
+                  <span className={`rounded-md border px-1.5 py-0.5 text-[9px] leading-none ${QUALITY_STYLES[source.quality]}`}>
+                    {source.quality}
+                  </span>
                   {isActive && !isLoading && !error && <Check className="w-3.5 h-3.5 text-emerald-300" />}
                   {isActive && isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 </button>
@@ -192,7 +224,7 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
                   onClick={switchToNext}
                   className="px-5 py-2.5 bg-[#831C91] hover:bg-[#D552A3] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2"
                 >
-                  <RotateCcw className="w-4 h-4" /> Switch Source
+                  <SkipForward className="w-4 h-4" /> Next Source
                 </button>
                 <button
                   onClick={() => setShowSources(true)}
@@ -217,7 +249,7 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
                       onClick={switchToNext}
                       className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 mx-auto"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" /> Not working? Switch to next source
+                      <SkipForward className="w-3.5 h-3.5" /> Not working? Next source
                     </button>
                   )}
                 </div>
@@ -227,8 +259,9 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
               ref={iframeRef}
               src={currentSource.url}
               className="w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture; web-share"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen *; gyroscope; picture-in-picture; web-share"
               allowFullScreen={true}
+              referrerPolicy="origin"
               title={title || "Watch"}
               onLoad={() => setIsLoading(false)}
               onError={handleIframeError}
@@ -238,7 +271,7 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
       </motion.div>
 
       <p className="text-xs text-white/40 text-center">
-        Source not loading? Click &quot;Switch to next source&quot; above or pick one manually from the source list.
+        Source not loading? Click &quot;Next Source&quot; above or pick one manually from the source list.
       </p>
     </div>
   );
