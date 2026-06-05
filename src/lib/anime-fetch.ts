@@ -26,6 +26,7 @@ export interface SeasonInfo {
   seasonLabel: string;
   totalEpisodes: number;
   isCurrent: boolean;
+  idMal?: number | null;
 }
 
 export interface EpisodeDetail {
@@ -38,6 +39,10 @@ export interface EpisodeDetail {
   isFiller?: boolean;
   isRecap?: boolean;
   malUrl?: string | null;
+  seasonNum?: number;
+  seasonId?: string;
+  seasonName?: string;
+  seasonMalId?: number | null;
 }
 
 interface AniListMedia {
@@ -186,7 +191,7 @@ const RELATIONS_QUERY = `query ($id: Int) {
     relations {
       edges {
         node {
-          id
+          id idMal
           title { romaji english native }
           type
           episodes
@@ -289,15 +294,16 @@ export async function getAnimeDetails(id: string): Promise<{
   if (!anime) return null;
 
   // Fetch relations separately (don't fail main query if relations time out)
-  let relatedSeasons: { id: number; title: string; episodes: number; season: string; seasonYear: number; format: string | null }[] = [];
+  let relatedSeasons: { id: number; idMal: number | null; title: string; episodes: number; season: string; seasonYear: number; format: string | null }[] = [];
   try {
     const relData = await anilistQuery(RELATIONS_QUERY, { id: numId });
     const edges = relData?.data?.Media?.relations?.edges || [];
     for (const edge of edges) {
       const node = edge.node;
-      if (node.type === "ANIME" && (edge.relationType === "SEQUEL" || edge.relationType === "PREQUEL")) {
+      if (node.type === "ANIME") {
         relatedSeasons.push({
           id: node.id,
+          idMal: node.idMal || null,
           title: node.title?.english || node.title?.romaji || "",
           episodes: node.episodes || 0,
           season: node.season || "FALL",
@@ -316,6 +322,7 @@ export async function getAnimeDetails(id: string): Promise<{
   const seen = new Set<number>();
   const currentEntry = {
     id: numId,
+    idMal: media.idMal || null,
     title: anime.name,
     episodes: media.episodes,
     season: media.season || "FALL",
@@ -346,37 +353,70 @@ export async function getAnimeDetails(id: string): Promise<{
       seasonLabel: `Season ${i + 1}`,
       totalEpisodes: totalEp,
       isCurrent: s.id === numId,
+      idMal: s.idMal,
     };
   });
 
-  const current = seasons.find(s => s.isCurrent) || seasons[0];
-  const totalEpisodes = Math.max(current.totalEpisodes, isMovieFormat ? 1 : 12);
+  // Fetch episodes for ALL seasons sequentially (avoid Jikan rate limits) and combine
+  const allCombinedEpisodes: EpisodeDetail[] = [];
+  for (const [idx, s] of allSeasons.entries()) {
+    if (idx > 0) await new Promise(r => setTimeout(r, 1000));
 
-  let episodes: EpisodeDetail[] = [];
-  if (media.idMal) {
-    const realEps = await fetchEpisodesFromJikan(media.idMal, id, totalEpisodes);
-    if (realEps) episodes = realEps;
-  }
+    const seasonId = String(s.id);
+    let seasonMalId = s.idMal;
 
-  const existingNums = new Set(episodes.map(e => e.episodeNum));
-  for (let i = 1; i <= Math.min(totalEpisodes, 500); i++) {
-    if (!existingNums.has(i)) {
-      episodes.push({
-        episodeId: `${id}-${i}`,
-        episodeNum: i,
-        title: `Episode ${i}`,
-        description: null,
-        thumbnail: null,
-        malUrl: null,
-        releasedDate: null,
-        isFiller: false,
-        isRecap: false,
-      });
+    // If AniList relation didn't include idMal, try fetching it separately
+    if (seasonMalId === null) {
+      try {
+        const q = `query ($id: Int) { Media(id: $id, type: ANIME) { idMal } }`;
+        const md = await anilistQuery(q, { id: s.id });
+        seasonMalId = md?.data?.Media?.idMal || null;
+        if (seasonMalId) await new Promise(r => setTimeout(r, 400));
+      } catch { /* use null */ }
     }
-  }
-  episodes.sort((a, b) => a.episodeNum - b.episodeNum);
 
-  return { anime, episodes, totalEpisodes, seasons };
+    const isMovie = s.format === "MOVIE" || s.format === "SPECIAL" || s.format === "OVA" || s.format === "ONA";
+    const maxEp = isMovie
+      ? Math.max(s.episodes || 1, 1)
+      : Math.max(s.episodes || 12, 1);
+
+    let seasonEps: EpisodeDetail[] = [];
+    if (seasonMalId) {
+      const realEps = await fetchEpisodesFromJikan(seasonMalId, seasonId, maxEp);
+      if (realEps) seasonEps = realEps;
+    }
+
+    const existingNums = new Set(seasonEps.map(e => e.episodeNum));
+    for (let i = 1; i <= Math.min(maxEp, 500); i++) {
+      if (!existingNums.has(i)) {
+        seasonEps.push({
+          episodeId: `${seasonId}-${i}`,
+          episodeNum: i,
+          title: `Episode ${i}`,
+          description: null,
+          thumbnail: null,
+          malUrl: null,
+          releasedDate: null,
+          isFiller: false,
+          isRecap: false,
+        });
+      }
+    }
+
+    seasonEps.sort((a, b) => a.episodeNum - b.episodeNum);
+    seasonEps.forEach(ep => {
+      ep.seasonNum = idx + 1;
+      ep.seasonId = seasonId;
+      ep.seasonName = s.title;
+      ep.seasonMalId = seasonMalId;
+    });
+
+    allCombinedEpisodes.push(...seasonEps);
+  }
+
+  const totalEpisodes = allCombinedEpisodes.length;
+
+  return { anime, episodes: allCombinedEpisodes, totalEpisodes, seasons };
 }
 
 // Search via Jikan (fallback)
@@ -415,12 +455,18 @@ async function fetchEpisodesFromJikan(
     const allEps: EpisodeDetail[] = [];
     let page = 1;
     let hasMore = true;
+    let retries = 0;
 
     while (hasMore && allEps.length < maxEpisodes) {
       const res = await fetch(
         `${JIKAN_BASE}/anime/${malId}/episodes?page=${page}`,
-        { signal: AbortSignal.timeout(6000), headers: { "User-Agent": "StreamVault/1.0" } }
+        { signal: AbortSignal.timeout(12000), headers: { "User-Agent": "StreamVault/1.0" } }
       );
+      if (res.status === 429 && retries < 3) {
+        retries++;
+        await new Promise(r => setTimeout(r, 1500 * retries));
+        continue;
+      }
       if (!res.ok) break;
 
       const data = await res.json();
@@ -434,7 +480,7 @@ async function fetchEpisodesFromJikan(
           episodeId: `${anilistId}-${epNum}`,
           episodeNum: epNum,
           title: ep.title || `Episode ${epNum}`,
-          description: null,
+          description: ep.synopsis || null,
           thumbnail: ep.images?.jpg?.image_url || null,
           releasedDate: ep.aired || null,
           isFiller: ep.filler || false,

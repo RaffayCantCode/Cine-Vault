@@ -21,6 +21,10 @@ export async function GET(
       isFiller: ep.isFiller || false,
       releasedDate: ep.releasedDate || null,
       description: ep.description || null,
+      seasonNum: ep.seasonNum || null,
+      seasonId: ep.seasonId || null,
+      seasonName: ep.seasonName || null,
+      seasonMalId: ep.seasonMalId || null,
     }));
 
     return Response.json({

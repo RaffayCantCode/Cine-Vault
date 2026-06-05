@@ -39,6 +39,10 @@ interface Episode {
   releasedDate?: string;
   isReleased?: boolean;
   description?: string;
+  seasonNum?: number;
+  seasonId?: string;
+  seasonName?: string;
+  seasonMalId?: number | null;
 }
 
 export default function AnimeDetailPage() {
@@ -87,7 +91,10 @@ export default function AnimeDetailPage() {
     try {
       const data = await fetchJson<{ success: boolean; data: { episodes: Episode[]; totalEpisodes: number } }>(`/api/anime/${seasonId}/episodes`);
       if (data.success && data.data?.episodes) {
-        const sorted = data.data.episodes.sort((a, b) => a.episodeNum - b.episodeNum);
+        const sorted = data.data.episodes.sort((a, b) => {
+          if ((a.seasonNum || 1) !== (b.seasonNum || 1)) return (a.seasonNum || 1) - (b.seasonNum || 1);
+          return a.episodeNum - b.episodeNum;
+        });
         const withRelease = sorted.map(ep => {
           const today = new Date();
           today.setHours(0, 0, 0, 0);
@@ -117,13 +124,18 @@ export default function AnimeDetailPage() {
   const handleSeasonClick = async (season: SeasonInfo) => {
     if (season.id === currentSeasonId) return;
     setCurrentSeasonId(season.id);
-    setAnime(prev => prev ? { ...prev, totalEpisodes: season.totalEpisodes } : prev);
-    await loadEpisodes(season.id);
+    // Episodes are already combined — scroll to this season's first episode
+    const firstEp = episodes.find(ep => ep.seasonId === season.id);
+    if (firstEp) {
+      setSelectedEp(firstEp);
+    }
   };
+
+  const EPISODES_PER_PAGE = 20;
 
   const episodeGroups = useMemo(() => {
     return episodes.reduce((acc, ep) => {
-      const group = Math.floor((ep.episodeNum - 1) / 30);
+      const group = ep.seasonNum || 1;
       if (!acc[group]) acc[group] = [];
       acc[group].push(ep);
       return acc;
@@ -132,6 +144,21 @@ export default function AnimeDetailPage() {
 
   const totalPages = Object.keys(episodeGroups).length;
   const currentIdx = episodes.findIndex(e => e.episodeId === selectedEp?.episodeId);
+
+  const [visiblePerSeason, setVisiblePerSeason] = useState<Record<number, number>>({});
+
+  const currentSeasonNum = currentPage + 1;
+  const currentSeasonVisible = visiblePerSeason[currentSeasonNum] || EPISODES_PER_PAGE;
+  const currentSeasonEps = episodeGroups[currentSeasonNum] || [];
+  const displayedEps = currentSeasonEps.slice(0, currentSeasonVisible);
+  const hasMoreEps = currentSeasonVisible < currentSeasonEps.length;
+
+  const loadMoreEpisodes = () => {
+    setVisiblePerSeason(prev => ({
+      ...prev,
+      [currentSeasonNum]: (prev[currentSeasonNum] || EPISODES_PER_PAGE) + EPISODES_PER_PAGE,
+    }));
+  };
 
   const handlePrev = () => {
     if (currentIdx > 0) {
@@ -157,10 +184,15 @@ export default function AnimeDetailPage() {
   const handleAutoNext = () => handleNext();
 
   // Lazy-load episode thumbnails (batch 3 at a time to avoid MAL rate limits)
+  // When currentSeasonId changes, ONLY process that season's episodes
   const thumbnailFetchingRef = useRef(new Set<string>());
+  const thumbTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    if (thumbTimerRef.current) clearTimeout(thumbTimerRef.current);
+
     const loading = thumbnailFetchingRef.current;
-    const needThumb = episodes.filter(ep => !ep.thumbnail && ep.malUrl && !loading.has(ep.episodeId));
+    const currentEps = episodes.filter(ep => ep.seasonId === currentSeasonId);
+    const needThumb = currentEps.filter(ep => !ep.thumbnail && ep.malUrl && !loading.has(ep.episodeId));
     if (needThumb.length === 0) return;
 
     let i = 0;
@@ -182,10 +214,12 @@ export default function AnimeDetailPage() {
           .catch(() => {})
           .finally(() => loading.delete(ep.episodeId));
       }
-      if (i < needThumb.length) setTimeout(tick, 400);
+      if (i < needThumb.length) thumbTimerRef.current = setTimeout(tick, 400);
     };
     tick();
-  }, [episodes]);
+
+    return () => { if (thumbTimerRef.current) clearTimeout(thumbTimerRef.current); };
+  }, [episodes, currentSeasonId, id]);
 
   const seasons = anime?.seasons || [];
 
@@ -278,11 +312,10 @@ export default function AnimeDetailPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3 }}
                     >
-                      {/* Pass malId for highly reliable VidLink Sub/Dub streams */}
                       <AnimePlayer
-                        animeId={currentSeasonId}
-                        malId={anime.idMal}
-                        animeTitle={anime.name}
+                        animeId={selectedEp.seasonId || currentSeasonId}
+                        malId={selectedEp.seasonMalId != null ? String(selectedEp.seasonMalId) : anime.idMal}
+                        animeTitle={selectedEp.seasonName || anime.name}
                         episode={selectedEp.episodeNum}
                         onAutoNext={handleAutoNext}
                       />
@@ -435,14 +468,15 @@ export default function AnimeDetailPage() {
                   {/* Range Tabs Selector (Jump directly between sets of 30 episodes) */}
                   {totalPages > 1 && (
                     <div className="flex flex-wrap gap-1.5">
-                      {Array.from({ length: totalPages }).map((_, idx) => {
-                        const start = idx * 30 + 1;
-                        const end = Math.min((idx + 1) * 30, episodes.length);
-                        const isCurrentPage = currentPage === idx;
+                      {Object.entries(episodeGroups).map(([seasonNum, eps]) => {
+                        const groupIdx = parseInt(seasonNum) - 1;
+                        const isCurrentPage = currentPage === groupIdx;
+                        const season = anime?.seasons?.[groupIdx];
+                        const label = season?.seasonLabel || `Season ${seasonNum}`;
                         return (
                           <button
-                            key={idx}
-                            onClick={() => setCurrentPage(idx)}
+                            key={seasonNum}
+                            onClick={() => setCurrentPage(groupIdx)}
                             className={cn(
                               "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
                               isCurrentPage 
@@ -450,7 +484,7 @@ export default function AnimeDetailPage() {
                                 : "bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white"
                             )}
                           >
-                            {start}-{end}
+                            {label}
                           </button>
                         );
                       })}
@@ -464,15 +498,24 @@ export default function AnimeDetailPage() {
                       <div key={i} className="h-28 rounded-2xl bg-white/[0.03] animate-pulse" />
                     ))}
                   </div>
-                ) : episodeGroups[currentPage]?.length ? (
+                ) : displayedEps.length ? (
                   <div className="space-y-3 pt-2">
-                    {episodeGroups[currentPage].map((ep) => {
+                    {displayedEps.map((ep, epIdx) => {
                       const isSelected = selectedEp?.episodeId === ep.episodeId;
                       const isUnreleased = ep.isReleased === false;
+                      const prevEp = epIdx > 0 ? displayedEps[epIdx - 1] : null;
+                      const isNewSeason = !prevEp || prevEp.seasonNum !== ep.seasonNum;
                       return (
-                        <div
-                          key={ep.episodeId}
-                          onClick={() => !isUnreleased && handleSelectEp(ep)}
+                        <div key={ep.episodeId}>
+                          {isNewSeason && (
+                            <div className="flex items-center gap-3 pt-2 pb-1">
+                              <div className="w-1 h-5 bg-gradient-to-b from-[#D552A3] to-[#831C91] rounded-full shadow-lg shadow-[#D552A3]/20" />
+                              <span className="text-sm font-bold text-white/70">{ep.seasonName || `Season ${ep.seasonNum || 1}`}</span>
+                              <div className="flex-1 h-px bg-white/[0.06]" />
+                            </div>
+                          )}
+                          <div
+                            onClick={() => !isUnreleased && handleSelectEp(ep)}
                           className={cn(
                             "group flex gap-4 p-3.5 rounded-2xl border transition-all duration-300 cursor-pointer select-none touch-manipulation",
                             isSelected 
@@ -553,8 +596,19 @@ export default function AnimeDetailPage() {
                             </p>
                           </div>
                         </div>
+                      </div>
                       );
                     })}
+                    {hasMoreEps && (
+                      <div className="flex justify-center pt-2 pb-4">
+                        <button
+                          onClick={loadMoreEpisodes}
+                          className="px-8 py-3 rounded-xl bg-gradient-to-r from-[#831C91] to-[#D552A3] text-white text-sm font-bold hover:shadow-xl hover:shadow-[#831C91]/25 transition-all"
+                        >
+                          Show {Math.min(EPISODES_PER_PAGE, currentSeasonEps.length - currentSeasonVisible)} More Episodes
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="p-8 text-center text-white/30 text-sm">
