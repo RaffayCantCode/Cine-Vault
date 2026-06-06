@@ -87,11 +87,11 @@ export function BrowseGridPage({ title, description, endpoint, mediaType }: Brow
           <div className="mb-12">
             <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">{title}</h1>
             {description ? <p className="text-sm text-white/40 mt-2">{description}</p> : null}
-            <div className="h-0.5 w-16 bg-gradient-to-r from-[#D552A3] to-[#831C91] rounded-full mt-3" />
+            <div className="h-0.5 w-16 bg-gradient-to-r from-[#7288AE] to-[#4B5694] rounded-full mt-3" />
           </div>
 
           {error && (
-            <div className="mb-8 premium-glass p-4 rounded-xl text-sm text-[#D552A3]">
+            <div className="mb-8 premium-glass p-4 rounded-xl text-sm text-[#7288AE]">
               {error}
             </div>
           )}
@@ -110,7 +110,7 @@ export function BrowseGridPage({ title, description, endpoint, mediaType }: Brow
           <div ref={sentinelRef} className="h-20 flex items-center justify-center text-white/40 text-sm font-medium">
             {isLoading && items.length > 0 ? (
               <span className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#D552A3] animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#7288AE] animate-pulse" />
                 Loading more...
               </span>
             ) : hasMore ? (

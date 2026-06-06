@@ -77,7 +77,7 @@ export function MediaRow({ title, items, isLoading, seeAllHref }: MediaRowProps)
     >
       <div className="flex items-center justify-between px-5 md:px-14">
         <div className="flex items-center gap-3">
-          <div className="w-1.5 h-6 bg-gradient-to-b from-[#D552A3] to-[#831C91] rounded-full shadow-lg shadow-[#D552A3]/20" />
+          <div className="w-1.5 h-6 bg-gradient-to-b from-[#7288AE] to-[#4B5694] rounded-full shadow-lg shadow-[#7288AE]/20" />
           <h2 className="text-lg md:text-2xl font-black text-white tracking-tight">{title}</h2>
         </div>
         <div className="flex items-center gap-2">
@@ -86,7 +86,7 @@ export function MediaRow({ title, items, isLoading, seeAllHref }: MediaRowProps)
               type="button"
               onClick={() => scrollByAmount("left")}
               disabled={!canScrollLeft}
-              className="w-10 h-10 rounded-xl border border-white/10 bg-white/[0.05] text-white/70 hover:text-white hover:bg-white/[0.12] hover:border-[#D552A3]/30 disabled:opacity-30 transition-all duration-200 backdrop-blur-sm"
+              className="w-10 h-10 rounded-xl border border-white/10 bg-white/[0.05] text-white/70 hover:text-white hover:bg-white/[0.12] hover:border-[#7288AE]/30 disabled:opacity-30 transition-all duration-200 backdrop-blur-sm"
               aria-label="Scroll left"
             >
               <ChevronLeft className="w-5 h-5 mx-auto" />
@@ -95,7 +95,7 @@ export function MediaRow({ title, items, isLoading, seeAllHref }: MediaRowProps)
               type="button"
               onClick={() => scrollByAmount("right")}
               disabled={!canScrollRight}
-              className="w-10 h-10 rounded-xl border border-white/10 bg-white/[0.05] text-white/70 hover:text-white hover:bg-white/[0.12] hover:border-[#D552A3]/30 disabled:opacity-30 transition-all duration-200 backdrop-blur-sm"
+              className="w-10 h-10 rounded-xl border border-white/10 bg-white/[0.05] text-white/70 hover:text-white hover:bg-white/[0.12] hover:border-[#7288AE]/30 disabled:opacity-30 transition-all duration-200 backdrop-blur-sm"
               aria-label="Scroll right"
             >
               <ChevronRight className="w-5 h-5 mx-auto" />
@@ -104,7 +104,7 @@ export function MediaRow({ title, items, isLoading, seeAllHref }: MediaRowProps)
           {seeAllHref && (
             <a
               href={seeAllHref}
-              className="flex items-center gap-1 text-xs font-semibold text-white/50 hover:text-[#D552A3] transition-colors group px-3 py-2 rounded-lg hover:bg-white/[0.05]"
+              className="flex items-center gap-1 text-xs font-semibold text-white/50 hover:text-[#7288AE] transition-colors group px-3 py-2 rounded-lg hover:bg-white/[0.05]"
             >
               See all
               <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />

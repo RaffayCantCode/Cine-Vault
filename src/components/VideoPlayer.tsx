@@ -14,7 +14,7 @@ interface VideoPlayerProps {
 }
 
 const SOURCE_STYLES: Record<string, { bg: string; badge: string }> = {
-  cinesrc: { bg: "bg-[#831C91]", badge: "bg-[#831C91]/20 text-[#D552A3]" },
+  cinesrc: { bg: "bg-[#4B5694]", badge: "bg-[#4B5694]/20 text-[#7288AE]" },
   vidsrcmov: { bg: "bg-cyan-600", badge: "bg-cyan-500/20 text-cyan-300" },
   vidking: { bg: "bg-fuchsia-600", badge: "bg-fuchsia-500/20 text-fuchsia-300" },
   "2embed": { bg: "bg-amber-600", badge: "bg-amber-500/20 text-amber-300" },
@@ -137,7 +137,7 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
           </button>
           <button
             onClick={switchToNext}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.08] hover:bg-[#831C91] border border-white/10 hover:border-[#D552A3]/40 text-white/80 hover:text-white text-xs font-bold transition-all"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.08] hover:bg-[#4B5694] border border-white/10 hover:border-[#7288AE]/40 text-white/80 hover:text-white text-xs font-bold transition-all"
             title={`Next source: ${sources[(sources.findIndex((s) => s.name === currentSource.name) + 1) % sources.length]?.name || sources[0]?.name}`}
           >
             <SkipForward className="w-4 h-4" />
@@ -221,7 +221,7 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
                 </button>
                 <button
                   onClick={switchToNext}
-                  className="px-5 py-2.5 bg-[#831C91] hover:bg-[#D552A3] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2"
+                  className="px-5 py-2.5 bg-[#4B5694] hover:bg-[#7288AE] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2"
                 >
                   <SkipForward className="w-4 h-4" /> Next Source
                 </button>
@@ -239,7 +239,7 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
             {isLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
                 <div className="text-center">
-                  <div className="w-14 h-14 border-4 border-white/10 border-t-[#831C91] rounded-full animate-spin mx-auto mb-4" />
+                  <div className="w-14 h-14 border-4 border-white/10 border-t-[#4B5694] rounded-full animate-spin mx-auto mb-4" />
                   <p className="text-white/60 text-sm font-medium mb-4">
                     {error || `Loading ${currentSource?.name || "player"}...`}
                   </p>

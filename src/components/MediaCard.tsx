@@ -83,7 +83,7 @@ export const MediaCard = memo(function MediaCard({ item, index = 0 }: MediaCardP
           )}
 
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#462C7D] to-[#831C91] flex items-center justify-center shadow-2xl shadow-[#831C91]/50 translate-y-4 group-hover:translate-y-0 transition-all duration-500 group-hover:scale-110">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#111844] to-[#4B5694] flex items-center justify-center shadow-2xl shadow-[#4B5694]/50 translate-y-4 group-hover:translate-y-0 transition-all duration-500 group-hover:scale-110">
               <Play className="w-6 h-6 fill-white text-white ml-0.5" />
             </div>
           </div>
@@ -113,12 +113,12 @@ export const MediaCard = memo(function MediaCard({ item, index = 0 }: MediaCardP
         ) : null}
 
         {isTmdbAnime(item) && (
-          <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-gradient-to-r from-[#831C91]/90 to-[#D552A3]/90 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-md backdrop-blur-sm tracking-wider uppercase group-hover:opacity-0 transition-opacity duration-300">
+          <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-gradient-to-r from-[#4B5694]/90 to-[#7288AE]/90 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-md backdrop-blur-sm tracking-wider uppercase group-hover:opacity-0 transition-opacity duration-300">
             <Languages className="w-2.5 h-2.5" /> Eng Dub
           </div>
         )}
 
-        <div className="absolute inset-0 rounded-2xl ring-1 ring-white/0 group-hover:ring-[#D552A3]/40 transition-all duration-500 pointer-events-none" />
+        <div className="absolute inset-0 rounded-2xl ring-1 ring-white/0 group-hover:ring-[#7288AE]/40 transition-all duration-500 pointer-events-none" />
         <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" style={{ boxShadow: "inset 0 0 30px rgba(213,82,163,0.15)" }} />
       </Link>
     </motion.div>

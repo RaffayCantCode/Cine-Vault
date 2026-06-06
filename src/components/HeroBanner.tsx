@@ -64,12 +64,12 @@ export function HeroBanner({ item }: HeroBannerProps) {
             />
           </>
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-[#462C7D]/30 via-background to-background" />
+          <div className="w-full h-full bg-gradient-to-br from-[#111844]/30 via-background to-background" />
         )}
 
-        <div className="absolute bottom-0 inset-x-0 h-72 bg-gradient-to-t from-[#831C91]/8 via-transparent to-transparent blur-3xl" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#D552A3]/5 rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#462C7D]/10 rounded-full blur-[100px]" />
+        <div className="absolute bottom-0 inset-x-0 h-72 bg-gradient-to-t from-[#4B5694]/8 via-transparent to-transparent blur-3xl" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#7288AE]/5 rounded-full blur-[120px]" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#111844]/10 rounded-full blur-[100px]" />
       </div>
 
       <div className="relative z-10 pb-20 md:pb-28 px-5 md:px-14 max-w-4xl pt-20">
@@ -79,7 +79,7 @@ export function HeroBanner({ item }: HeroBannerProps) {
           transition={{ delay: 0.25, duration: 0.5 }}
           className="flex items-center gap-3 mb-5"
         >
-          <span className="flex items-center gap-1.5 text-xs font-bold tracking-[0.2em] uppercase px-4 py-1.5 bg-gradient-to-r from-[#831C91]/20 to-[#D552A3]/10 border border-[#D552A3]/30 rounded-full text-[#D552A3] backdrop-blur-xl">
+          <span className="flex items-center gap-1.5 text-xs font-bold tracking-[0.2em] uppercase px-4 py-1.5 bg-gradient-to-r from-[#4B5694]/20 to-[#7288AE]/10 border border-[#7288AE]/30 rounded-full text-[#7288AE] backdrop-blur-xl">
             {isMovie ? "Movie" : "TV Series"}
           </span>
           {isTmdbAnime(item) && (
@@ -131,7 +131,7 @@ export function HeroBanner({ item }: HeroBannerProps) {
         >
           <Link
             href={watchLink}
-            className="group flex items-center gap-2.5 bg-gradient-to-r from-[#462C7D] to-[#831C91] hover:from-[#831C91] hover:to-[#D552A3] active:scale-95 text-white font-bold px-8 py-4 rounded-xl text-sm transition-all duration-300 shadow-2xl shadow-[#831C91]/40 hover:shadow-[#D552A3]/30 hover:shadow-2xl"
+            className="group flex items-center gap-2.5 bg-gradient-to-r from-[#111844] to-[#4B5694] hover:from-[#4B5694] hover:to-[#7288AE] active:scale-95 text-white font-bold px-8 py-4 rounded-xl text-sm transition-all duration-300 shadow-2xl shadow-[#4B5694]/40 hover:shadow-[#7288AE]/30 hover:shadow-2xl"
           >
             <Play className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />
             Watch Now

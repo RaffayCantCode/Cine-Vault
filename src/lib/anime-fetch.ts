@@ -342,15 +342,29 @@ export async function getAnimeDetails(id: string): Promise<{
     return seasonOrder.indexOf(a.season) - seasonOrder.indexOf(b.season);
   });
 
+  let tvCount = 0;
+  let movieCount = 0;
+  let ovaCount = 0;
+  let specialCount = 0;
   const seasons: SeasonInfo[] = allSeasons.map((s, i) => {
-    const isMovie = s.format === "MOVIE" || s.format === "SPECIAL" || s.format === "OVA" || s.format === "ONA";
-    const totalEp = isMovie
+    const isMovie = s.format === "MOVIE";
+    const isOva = s.format === "OVA" || s.format === "ONA";
+    const isSpecial = s.format === "SPECIAL";
+    const isTv = !isMovie && !isOva && !isSpecial;
+
+    let label: string;
+    if (isMovie) { movieCount++; label = `Movie ${movieCount}`; }
+    else if (isOva) { ovaCount++; label = `OVA ${ovaCount}`; }
+    else if (isSpecial) { specialCount++; label = `Special ${specialCount}`; }
+    else { tvCount++; label = `Season ${tvCount}`; }
+
+    const totalEp = isMovie || isOva || isSpecial
       ? Math.max(s.episodes || 1, 1)
       : Math.max(s.episodes || 12, 1);
     return {
       id: String(s.id),
       name: s.title,
-      seasonLabel: `Season ${i + 1}`,
+      seasonLabel: label,
       totalEpisodes: totalEp,
       isCurrent: s.id === numId,
       idMal: s.idMal,
@@ -424,7 +438,7 @@ export async function searchViaJikan(query: string): Promise<AnimeItem[]> {
   try {
     const res = await fetch(
       `${JIKAN_BASE}/anime?q=${encodeURIComponent(query)}&limit=25&sfw`,
-      { headers: { "User-Agent": "StreamVault/1.0" }, signal: AbortSignal.timeout(6000) }
+      { headers: { "User-Agent": "CineVault/1.0" }, signal: AbortSignal.timeout(6000) }
     );
     if (!res.ok) return [];
     const data = await res.json();
@@ -460,7 +474,7 @@ async function fetchEpisodesFromJikan(
     while (hasMore && allEps.length < maxEpisodes) {
       const res = await fetch(
         `${JIKAN_BASE}/anime/${malId}/episodes?page=${page}`,
-        { signal: AbortSignal.timeout(12000), headers: { "User-Agent": "StreamVault/1.0" } }
+        { signal: AbortSignal.timeout(12000), headers: { "User-Agent": "CineVault/1.0" } }
       );
       if (res.status === 429 && retries < 3) {
         retries++;

@@ -6,8 +6,8 @@ import { Providers } from "@/components/Providers";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "StreamVault — Premium Streaming",
-  description: "Premium streaming experience for movies, TV, and anime with Japanese audio & English subtitles.",
+  title: "CineVault — Movies, TV & Anime",
+  description: "Movies. TV. Anime. All in one place. Stream everything you love — premium, curated, and always fresh.",
   icons: { icon: "/favicon.svg" },
 };
 

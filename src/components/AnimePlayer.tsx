@@ -21,8 +21,8 @@ interface AnimePlayerProps {
 function buildSources(animeId: string, episode: number): Source[] {
   const id = animeId.replace(/\D/g, "");
   return [
-    { name: "Source 1", urls: [`https://vidnest.fun/anime/${id}/${episode}/sub`], color: "from-[#831C91]/30 to-[#D552A3]/20" },
-    { name: "Source 2", urls: [`https://vidnest.fun/anime/${id}/${episode}/sub?source=pahe`], color: "from-[#462C7D]/30 to-[#831C91]/20" },
+    { name: "Source 1", urls: [`https://vidnest.fun/anime/${id}/${episode}/sub`], color: "from-[#4B5694]/30 to-[#7288AE]/20" },
+    { name: "Source 2", urls: [`https://vidnest.fun/anime/${id}/${episode}/sub?source=pahe`], color: "from-[#111844]/30 to-[#4B5694]/20" },
   ];
 }
 
@@ -102,7 +102,7 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
         <div className="flex items-center gap-2">
           <button
             onClick={switchSource}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.08] hover:bg-[#831C91] border border-white/10 hover:border-[#D552A3]/40 text-white/80 hover:text-white text-xs font-bold transition-all"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.08] hover:bg-[#4B5694] border border-white/10 hover:border-[#7288AE]/40 text-white/80 hover:text-white text-xs font-bold transition-all"
             title={`Next source: ${nextSourceName}`}
           >
             <SkipForward className="w-4 h-4" />
@@ -136,7 +136,7 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
               </p>
               <button
                 onClick={switchSource}
-                className="px-4 py-2 bg-[#831C91] hover:bg-[#D552A3] text-white rounded-xl text-xs font-bold transition-all"
+                className="px-4 py-2 bg-[#4B5694] hover:bg-[#7288AE] text-white rounded-xl text-xs font-bold transition-all"
               >
                 Next Source
               </button>
@@ -147,7 +147,7 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
             {isLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
                 <div className="text-center">
-                  <div className="w-10 h-10 border-3 border-white/10 border-t-[#D552A3] rounded-full animate-spin mx-auto mb-3" />
+                  <div className="w-10 h-10 border-3 border-white/10 border-t-[#7288AE] rounded-full animate-spin mx-auto mb-3" />
                   <p className="text-white/50 text-sm font-medium">{currentSource.name}...</p>
                 </div>
               </div>
@@ -179,7 +179,7 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
       <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-4 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Server className="w-4 h-4 text-[#D552A3]" />
+            <Server className="w-4 h-4 text-[#7288AE]" />
             <span className="text-xs font-semibold text-white/90">Select Streaming Server</span>
           </div>
           <span className="text-[10px] text-white/45 font-medium">
@@ -200,15 +200,15 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
                 }}
                 className={`flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all text-xs font-medium ${
                   isActive
-                    ? `bg-gradient-to-r ${source.color} border-[#D552A3]/30 text-white shadow-lg shadow-[#D552A3]/5`
+                    ? `bg-gradient-to-r ${source.color} border-[#7288AE]/30 text-white shadow-lg shadow-[#7288AE]/5`
                     : "bg-white/[0.04] hover:bg-white/[0.08] border-white/5 hover:border-white/10 text-white/70 hover:text-white"
                 }`}
               >
                 <span className="truncate">{source.name}</span>
                 {isActive ? (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#D552A3] animate-pulse shrink-0 ml-1.5" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#7288AE] animate-pulse shrink-0 ml-1.5" />
                 ) : source.name === "Source 2" ? (
-                  <span className="text-[9px] font-bold text-[#D552A3] uppercase shrink-0 ml-1.5">Pahe</span>
+                  <span className="text-[9px] font-bold text-[#7288AE] uppercase shrink-0 ml-1.5">Pahe</span>
                 ) : null}
               </button>
             );
@@ -218,7 +218,7 @@ export function AnimePlayer({ animeId, malId, animeTitle, episode, onAutoNext }:
 
       <div className="flex items-center justify-between gap-2 text-[10px] text-white/20">
         <span>Auto-switches to next source after 8s if stuck</span>
-        <button onClick={switchSource} className="text-white/30 hover:text-[#D552A3] transition-colors">
+        <button onClick={switchSource} className="text-white/30 hover:text-[#7288AE] transition-colors">
           Next Source ({nextSourceName})
         </button>
       </div>

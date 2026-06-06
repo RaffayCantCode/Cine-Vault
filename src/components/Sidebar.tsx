@@ -36,10 +36,10 @@ export function Sidebar() {
       {/* Mobile Top Header */}
       <header className="md:hidden fixed top-0 inset-x-0 h-14 premium-glass z-40 flex items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2">
-          <img src="/logo-icon.svg" alt="StreamVault" className="w-8 h-8 drop-shadow-lg" />
+          <img src="/logo-icon.svg" alt="CineVault" className="w-8 h-8 drop-shadow-lg" />
           <span className="font-bold text-lg tracking-wider">
-            <span className="text-white">STREAM</span>
-            <span className="bg-gradient-to-r from-[#D552A3] to-[#FF70BF] bg-clip-text text-transparent">VAULT</span>
+            <span className="text-white">CINE</span>
+            <span className="bg-gradient-to-r from-[#7288AE] to-[#EAE0CF] bg-clip-text text-transparent">VAULT</span>
           </span>
         </Link>
 
@@ -48,7 +48,7 @@ export function Sidebar() {
             href="/search"
             className={cn(
               "p-3 text-white/50 hover:text-white rounded-xl transition-all touch-manipulation",
-              pathname === "/search" && "text-[#D552A3] bg-white/[0.06]"
+              pathname === "/search" && "text-[#7288AE] bg-white/[0.06]"
             )}
             aria-label="Search"
           >
@@ -77,7 +77,7 @@ export function Sidebar() {
             ) : (
               <button
                 onClick={() => signIn()}
-                className="p-3 rounded-xl bg-[#831C91] text-white hover:bg-[#D552A3] transition-colors flex items-center justify-center touch-manipulation"
+                className="p-3 rounded-xl bg-[#4B5694] text-white hover:bg-[#7288AE] transition-colors flex items-center justify-center touch-manipulation"
                 aria-label="Log in"
               >
                 <LogIn className="w-4 h-4" />
@@ -120,14 +120,14 @@ export function Sidebar() {
       </nav>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex fixed top-0 left-0 bottom-0 w-56 lg:w-64 z-50 flex-col bg-[#0a0a12] border-r border-white/[0.06]">
+      <aside className="hidden md:flex fixed top-0 left-0 bottom-0 w-56 lg:w-64 z-50 flex-col bg-[#0d1233] border-r border-[#7288AE]/10">
         {/* Logo */}
         <div className="p-4 md:p-3 lg:p-4">
           <Link href="/" className="flex items-center gap-3">
-            <img src="/logo-icon.svg" alt="StreamVault" className="w-10 h-10 shrink-0 drop-shadow-lg" />
+            <img src="/logo-icon.svg" alt="CineVault" className="w-10 h-10 shrink-0 drop-shadow-lg" />
             <span className="font-bold text-xl tracking-wider">
               <span className="text-white">STREAM</span>
-              <span className="bg-gradient-to-r from-[#D552A3] to-[#FF70BF] bg-clip-text text-transparent">VAULT</span>
+              <span className="bg-gradient-to-r from-[#7288AE] to-[#EAE0CF] bg-clip-text text-transparent">VAULT</span>
             </span>
           </Link>
         </div>
@@ -151,7 +151,7 @@ export function Sidebar() {
                 {isActive && (
                   <motion.div
                     layoutId="nav-pill"
-                    className="absolute inset-0 rounded-xl -z-10 bg-white/[0.06] border border-white/[0.08]"
+                    className="absolute inset-0 rounded-xl -z-10 bg-[#4B5694]/15 border border-[#7288AE]/20"
                     transition={{ type: "spring", stiffness: 380, damping: 35 }}
                   />
                 )}
@@ -210,7 +210,7 @@ export function Sidebar() {
             ) : (
               <button
                 onClick={() => signIn()}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#831C91] hover:bg-[#D552A3] text-white text-xs font-bold transition-all"
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#4B5694] hover:bg-[#7288AE] text-white text-xs font-bold transition-all"
               >
                 <LogIn className="w-4 h-4" />
                 <span>Log in</span>

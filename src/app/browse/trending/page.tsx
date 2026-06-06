@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { MediaCard } from "@/components/MediaCard";
+import { Loader2 } from "lucide-react";
 import { fetchJson, filterReleasedSafeContent } from "@/lib/utils";
 
 type TrendType = "movie" | "tv";
@@ -40,20 +41,25 @@ export default function TrendingPage() {
   const [state, setState] = useState<Record<TrendType, TrendState>>({ movie: initialState, tv: initialState });
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
+  // Refs per tab: next batch start page, loading flag, hasMore flag
+  const nextBatchRef = useRef<Record<TrendType, number>>({ movie: 4, tv: 4 });
+  const loadingRef = useRef<Record<TrendType, boolean>>({ movie: false, tv: false });
+  const hasMoreRef = useRef<Record<TrendType, boolean>>({ movie: true, tv: true });
+
   const current = state[activeTab];
+  loadingRef.current[activeTab] = current.isLoading;
+  hasMoreRef.current[activeTab] = current.hasMore;
 
   const loadPage = async (tab: TrendType, startPage: number, append: boolean) => {
     setState((prev) => ({
       ...prev,
-      [tab]: {
-        ...prev[tab],
-        isLoading: true,
-        error: null,
-      },
+      [tab]: { ...prev[tab], isLoading: true, error: null },
     }));
 
     try {
-      const pages = append ? [startPage, startPage + 1, startPage + 2] : [startPage];
+      const pages = append
+        ? [nextBatchRef.current[tab], nextBatchRef.current[tab] + 1, nextBatchRef.current[tab] + 2]
+        : [startPage];
 
       const allResults = await Promise.all(
         pages.map((p) =>
@@ -66,7 +72,7 @@ export default function TrendingPage() {
 
       const merged = filterReleasedSafeContent(allResults.flatMap((r) => r.results || []));
       const last = allResults[allResults.length - 1];
-      const hasMore = last ? last.page < last.total_pages : false;
+      const more = last ? last.page < last.total_pages : false;
 
       setState((prev) => ({
         ...prev,
@@ -75,9 +81,15 @@ export default function TrendingPage() {
           isLoading: false,
           items: append ? [...prev[tab].items, ...merged] : merged,
           page: startPage,
-          hasMore,
+          hasMore: more,
         },
       }));
+
+      if (append) {
+        nextBatchRef.current[tab] += 3;
+      } else {
+        nextBatchRef.current[tab] = startPage + 3;
+      }
     } catch (e) {
       setState((prev) => ({
         ...prev,
@@ -101,17 +113,18 @@ export default function TrendingPage() {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        const entry = entries[0];
-        if (!entry.isIntersecting) return;
-        if (current.isLoading || !current.hasMore) return;
-        loadPage(activeTab, current.page + 3, true);
+        if (!entries[0].isIntersecting) return;
+        const tab = activeTab;
+        if (loadingRef.current[tab] || !hasMoreRef.current[tab]) return;
+        loadPage(tab, 1, true);
       },
-      { rootMargin: "300px" }
+      { rootMargin: "800px" }
     );
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [activeTab, current.isLoading, current.hasMore, current.page, timeWindow]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const title = useMemo(() => (activeTab === "movie" ? "Trending Movies" : "Trending TV Shows"), [activeTab]);
 
@@ -126,16 +139,16 @@ export default function TrendingPage() {
               <p className="text-sm text-white/40 mt-2">{title}</p>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => setActiveTab("movie")} className={`px-4 py-2 rounded-xl text-sm font-semibold ${activeTab === "movie" ? "bg-[#831C91] text-white" : "bg-white/[0.05] text-white/60"}`}>Movies</button>
-              <button onClick={() => setActiveTab("tv")} className={`px-4 py-2 rounded-xl text-sm font-semibold ${activeTab === "tv" ? "bg-[#831C91] text-white" : "bg-white/[0.05] text-white/60"}`}>TV Shows</button>
+              <button onClick={() => setActiveTab("movie")} className={`px-4 py-2 rounded-xl text-sm font-semibold ${activeTab === "movie" ? "bg-[#4B5694] text-white" : "bg-white/[0.05] text-white/60"}`}>Movies</button>
+              <button onClick={() => setActiveTab("tv")} className={`px-4 py-2 rounded-xl text-sm font-semibold ${activeTab === "tv" ? "bg-[#4B5694] text-white" : "bg-white/[0.05] text-white/60"}`}>TV Shows</button>
               <select
                 value={timeWindow}
                 onChange={(e) => setTimeWindow(e.target.value as "day" | "week")}
-                className="h-10 px-3 rounded-xl bg-[#1a1a2e] border border-white/20 text-white text-sm font-semibold appearance-none cursor-pointer hover:border-[#D552A3]/50 transition-colors"
+                className="h-10 px-3 rounded-xl bg-[#131945] border border-white/20 text-white text-sm font-semibold appearance-none cursor-pointer hover:border-[#7288AE]/50 transition-colors"
                 style={{ backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e\")", backgroundPosition: "right 0.5rem center", backgroundRepeat: "no-repeat", backgroundSize: "1.5em 1.5em", paddingRight: "2.5rem" }}
               >
-                <option value="day" className="bg-[#1a1a2e] text-white">Today</option>
-                <option value="week" className="bg-[#1a1a2e] text-white">This Week</option>
+                <option value="day" className="bg-[#131945] text-white">Today</option>
+                <option value="week" className="bg-[#131945] text-white">This Week</option>
               </select>
             </div>
           </div>
@@ -153,8 +166,20 @@ export default function TrendingPage() {
             ))}
           </div>
 
-          <div ref={sentinelRef} className="h-20 flex items-center justify-center text-white/50 text-sm">
-            {current.isLoading && current.items.length > 0 ? "Loading more..." : current.hasMore ? "Scroll for more" : "End of results"}
+          <div
+            ref={sentinelRef}
+            className="w-full py-12 flex flex-col items-center justify-center gap-3 text-white/40"
+          >
+            {current.isLoading && current.items.length > 0 ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-[#7288AE]" />
+                <span className="text-sm font-medium text-white/50">Loading more...</span>
+              </div>
+            ) : current.hasMore ? (
+              <span className="text-xs">Scroll down for more</span>
+            ) : (
+              <span className="text-xs text-white/20">No more results</span>
+            )}
           </div>
         </div>
       </main>

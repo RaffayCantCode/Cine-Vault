@@ -1,25 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 80" fill="none">
   <defs>
     <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#462C7D"/>
-      <stop offset="35%" stop-color="#831C91"/>
-      <stop offset="70%" stop-color="#D552A3"/>
-      <stop offset="100%" stop-color="#FF70BF"/>
+      <stop offset="0%" stop-color="#4B5694"/>
+      <stop offset="50%" stop-color="#7288AE"/>
+      <stop offset="100%" stop-color="#EAE0CF"/>
     </linearGradient>
     <filter id="sg">
-      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#D552A3" flood-opacity="0.4"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#7288AE" flood-opacity="0.25"/>
     </filter>
   </defs>
-  <!-- SV icon -->
   <g filter="url(#sg)">
-    <rect x="8" y="12" width="56" height="56" rx="14" fill="#0a0a12" stroke="url(#lg)" stroke-width="2" stroke-opacity="0.6"/>
-    <path d="M24 24h10l-6 28H24z" fill="url(#lg)" opacity="0.85"/>
-    <path d="M38 24h10l-6 28H38z" fill="url(#lg)" opacity="0.65"/>
+    <rect x="8" y="12" width="56" height="56" rx="16" fill="#111844" stroke="url(#lg)" stroke-width="2" opacity="0.6"/>
+    <path d="M18 24h10c3 0 5.5 2.5 5.5 5.5S31 35 28 35H18V24z" stroke="url(#lg)" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M38 49l7-14 7 14" stroke="url(#lg)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  <!-- STREAM text -->
-  <text x="80" y="48" font-family="Inter, system-ui, sans-serif" font-size="30" font-weight="800" fill="white" letter-spacing="3">STREAM</text>
-  <!-- VAULT text (accent) -->
-  <text x="218" y="48" font-family="Inter, system-ui, sans-serif" font-size="30" font-weight="800" fill="url(#lg)" letter-spacing="3">VAULT</text>
-  <!-- underline accent -->
-  <line x1="80" y1="58" x2="305" y2="58" stroke="url(#lg)" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+  <text x="80" y="49" font-family="Inter, system-ui, sans-serif" font-size="32" font-weight="800" fill="#EAE0CF" letter-spacing="2.5">CINE</text>
+  <text x="192" y="49" font-family="Inter, system-ui, sans-serif" font-size="32" font-weight="800" fill="url(#lg)" letter-spacing="2.5">VAULT</text>
+  <line x1="80" y1="60" x2="310" y2="60" stroke="url(#lg)" stroke-width="2" stroke-linecap="round" opacity="0.35"/>
 </svg>

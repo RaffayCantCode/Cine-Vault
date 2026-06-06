@@ -108,7 +108,7 @@ export default function SearchPage() {
           <Input
             ref={inputRef}
             type="text"
-            className="w-full h-16 pl-14 pr-4 premium-glass text-xl rounded-2xl focus-visible:ring-[#D552A3] focus-visible:ring-offset-0 text-white placeholder:text-white/30"
+            className="w-full h-16 pl-14 pr-4 premium-glass text-xl rounded-2xl focus-visible:ring-[#7288AE] focus-visible:ring-offset-0 text-white placeholder:text-white/30"
             placeholder="Search movies, TV shows & anime..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -124,7 +124,7 @@ export default function SearchPage() {
                 className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 capitalize touch-manipulation ${
                   activeTab === tab
                     ? tab === "anime"
-                      ? "bg-[#831C91] text-white shadow-lg shadow-[#831C91]/20"
+                      ? "bg-[#4B5694] text-white shadow-lg shadow-[#4B5694]/20"
                       : "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
                     : "bg-white/[0.05] text-white/50 hover:bg-white/[0.09] hover:text-white"
                 }`}
@@ -149,7 +149,7 @@ export default function SearchPage() {
               <MonitorPlay className="w-10 h-10 text-white/30" />
             </div>
             <h3 className="text-2xl font-black text-white mb-2 tracking-tight">Find something to watch</h3>
-            <p className="text-white/40 max-w-md">Search movies, TV shows, and <span className="text-[#D552A3] font-semibold">anime</span> all in one place.</p>
+            <p className="text-white/40 max-w-md">Search movies, TV shows, and <span className="text-[#7288AE] font-semibold">anime</span> all in one place.</p>
           </div>
         ) : error ? (
           <div className="premium-glass max-w-lg mx-auto p-8 rounded-2xl text-center">
@@ -168,9 +168,9 @@ export default function SearchPage() {
             {(activeTab === "all" || activeTab === "anime") && animeResults.length > 0 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-1 h-5 bg-[#831C91] rounded-full" />
+                  <div className="w-1 h-5 bg-[#4B5694] rounded-full" />
                   <h2 className="text-lg font-bold text-white">Anime Results</h2>
-                  <span className="text-[10px] font-bold text-[#D552A3] bg-[#831C91]/10 border border-[#D552A3]/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-[#7288AE] bg-[#4B5694]/10 border border-[#7288AE]/20 px-2 py-0.5 rounded-full uppercase tracking-wider">
                     🇯🇵 Japanese Dub · English Subs
                   </span>
                 </div>

@@ -41,16 +41,16 @@ export function Navigation() {
         className={cn(
           "fixed top-0 inset-x-0 z-50 transition-all duration-500 h-16 sm:h-[72px] flex items-center px-5 md:px-10",
           isScrolled
-            ? "premium-glass shadow-2xl shadow-[#831C91]/8"
+            ? "premium-glass shadow-2xl shadow-[#4B5694]/8"
             : "bg-gradient-to-b from-[#0a0a12]/95 via-[#0a0a12]/60 to-transparent"
         )}
       >
-      {isScrolled && <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-[#D552A3]/20 to-transparent" />}
+      {isScrolled && <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-[#7288AE]/20 to-transparent" />}
         <div className="flex items-center w-full max-w-screen-2xl mx-auto gap-8">
           <Link href="/" className="shrink-0 group">
             <span className="font-bold text-2xl md:text-3xl tracking-wider leading-none flex items-center">
               <span className="gradient-text transition-opacity group-hover:opacity-80">
-                STREAM
+                CINE
               </span>
               <span className="text-white/30 mx-1.5 font-light">|</span>
               <span className="gradient-text transition-opacity group-hover:opacity-80">
@@ -71,10 +71,10 @@ export function Navigation() {
                     "relative px-4 py-2 text-sm font-medium rounded-xl transition-all duration-300",
                     active
                       ? isAnime 
-                        ? "text-[#D552A3]" 
+                        ? "text-[#7288AE]" 
                         : "text-white"
                       : isAnime
-                      ? "text-[#D552A3]/70 hover:text-[#D552A3]"
+                      ? "text-[#7288AE]/70 hover:text-[#7288AE]"
                       : "text-white/50 hover:text-white"
                   )}
                 >
@@ -85,7 +85,7 @@ export function Navigation() {
                       className={cn(
                         "absolute inset-0 rounded-xl -z-10",
                         isAnime
-                          ? "bg-gradient-to-r from-[#831C91]/20 to-[#D552A3]/10 border border-[#D552A3]/20"
+                          ? "bg-gradient-to-r from-[#4B5694]/20 to-[#7288AE]/10 border border-[#7288AE]/20"
                           : "bg-white/[0.06] border border-white/[0.08]"
                       )}
                       transition={{ type: "spring", stiffness: 380, damping: 35 }}
@@ -171,9 +171,9 @@ export function Navigation() {
                 className={cn(
                   "block px-4 py-3 rounded-lg text-sm font-semibold transition-colors",
                   pathname === href
-                    ? accent === "violet" ? "text-[#D552A3] bg-[#831C91]/[0.08]" : "text-white bg-white/[0.08]"
+                    ? accent === "violet" ? "text-[#7288AE] bg-[#4B5694]/[0.08]" : "text-white bg-white/[0.08]"
                     : accent === "violet"
-                    ? "text-[#D552A3]/70 hover:text-[#D552A3] hover:bg-[#831C91]/[0.06]"
+                    ? "text-[#7288AE]/70 hover:text-[#7288AE] hover:bg-[#4B5694]/[0.06]"
                     : "text-white/50 hover:text-white hover:bg-white/[0.04]"
                 )}
               >

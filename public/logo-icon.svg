@@ -1,22 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <defs>
     <linearGradient id="svGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#462C7D"/>
-      <stop offset="35%" stop-color="#831C91"/>
-      <stop offset="70%" stop-color="#D552A3"/>
-      <stop offset="100%" stop-color="#FF70BF"/>
+      <stop offset="0%" stop-color="#4B5694"/>
+      <stop offset="50%" stop-color="#7288AE"/>
+      <stop offset="100%" stop-color="#EAE0CF"/>
     </linearGradient>
     <filter id="glow">
-      <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#D552A3" flood-opacity="0.5"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#7288AE" flood-opacity="0.35"/>
     </filter>
   </defs>
-  <rect width="64" height="64" rx="16" fill="#0a0a12"/>
-  <rect x="2" y="2" width="60" height="60" rx="14" stroke="url(#svGrad)" stroke-width="2" opacity="0.6"/>
+  <rect width="64" height="64" rx="18" fill="#111844"/>
+  <rect x="2" y="2" width="60" height="60" rx="16" stroke="url(#svGrad)" stroke-width="2" opacity="0.5"/>
   <g filter="url(#glow)">
-    <path d="M18 18h12l-8 28H18z" fill="url(#svGrad)" opacity="0.85"/>
-    <path d="M34 18h12l-8 28H34z" fill="url(#svGrad)" opacity="0.65"/>
+    <path d="M16 20h12c4 0 7 3 7 7s-3 7-7 7H16V20z" stroke="url(#svGrad)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path d="M38 44l8-16 8 16" stroke="url(#svGrad)" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  <path d="M22 22l4-4M30 22l4-4M38 22l4-4" stroke="url(#svGrad)" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
-  <circle cx="20" cy="20" r="2" fill="#FF70BF" opacity="0.8"/>
-  <circle cx="44" cy="44" r="1.5" fill="#D552A3" opacity="0.6"/>
+  <circle cx="48" cy="20" r="2" fill="#EAE0CF" opacity="0.3"/>
 </svg>
