@@ -1,8 +1,23 @@
 import { NextRequest } from "next/server";
 import { fetchEpisodeThumbnail } from "@/lib/anime-fetch";
 
+const ALLOWED_THUMBNAIL_DOMAINS = ["myanimelist.net"];
+
+function isValidThumbnailUrl(raw: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "https:") return null;
+  if (!ALLOWED_THUMBNAIL_DOMAINS.some((d) => parsed.hostname === d || parsed.hostname.endsWith("." + d))) return null;
+  return parsed.href;
+}
+
 export async function GET(request: NextRequest) {
-  const url = request.nextUrl.searchParams.get("url");
+  const rawUrl = request.nextUrl.searchParams.get("url");
+  const url = rawUrl ? isValidThumbnailUrl(rawUrl) : null;
   if (!url) {
     return Response.json({ success: false, thumbnail: null });
   }

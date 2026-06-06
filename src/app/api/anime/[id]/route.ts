@@ -35,7 +35,7 @@ export async function GET(
   } catch (error) {
     console.error("[Anime Details Error]:", error);
     return Response.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch anime details", success: false },
+      { error: "Failed to fetch anime details", success: false },
       { status: 500 }
     );
   }

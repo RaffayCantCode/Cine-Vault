@@ -69,7 +69,6 @@ export default function SearchPage() {
         setResults(filtered);
       } else {
         setResults([]);
-        setError("Search failed");
       }
       setIsLoading(false);
 
@@ -80,6 +79,13 @@ export default function SearchPage() {
         setAnimeResults([]);
       }
       setAnimeLoading(false);
+
+      // Only show error if BOTH APIs failed
+      if (tmdbResult.status !== "fulfilled" && animeResult.status !== "fulfilled") {
+        setError("Search failed");
+      } else {
+        setError(null);
+      }
     };
 
     search();

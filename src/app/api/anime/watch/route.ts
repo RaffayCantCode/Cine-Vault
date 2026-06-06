@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[Anime Watch Error]:", error);
     return Response.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch streaming", success: false },
+      { error: "Failed to fetch streaming", success: false },
       { status: 500 }
     );
   }

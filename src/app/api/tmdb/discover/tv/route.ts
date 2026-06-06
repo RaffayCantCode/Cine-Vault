@@ -22,8 +22,6 @@ export async function GET(request: NextRequest) {
     const data = await tmdbFetch("/discover/tv", params);
     return Response.json(data);
   } catch (error) {
-    const message =
-      error instanceof Error && error.message ? error.message : "Failed to discover TV shows";
-    return Response.json({ error: message }, { status: 500 });
+    return Response.json({ error: "Failed to discover TV shows" }, { status: 500 });
   }
 }

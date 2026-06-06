@@ -24,10 +24,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("[Anime Search Error]:", error);
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : "Failed to search anime";
-    return Response.json({ error: message, success: false }, { status: 500 });
+    return Response.json({ error: "Failed to search anime", success: false }, { status: 500 });
   }
 }

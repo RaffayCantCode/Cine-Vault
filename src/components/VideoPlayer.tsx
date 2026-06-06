@@ -93,7 +93,7 @@ export function VideoPlayer({ type, id, season, episode, title }: VideoPlayerPro
     frame.setAttribute("allowfullscreen", "true");
     frame.setAttribute("webkitallowfullscreen", "true");
     frame.setAttribute("mozallowfullscreen", "true");
-    frame.setAttribute("referrerpolicy", "no-referrer-when-downgrade");
+    frame.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
   }, [currentSource.url]);
 
   const requestFullscreen = async () => {

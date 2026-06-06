@@ -9,6 +9,6 @@ export async function GET(request: NextRequest) {
     const data = await tmdbFetch("/movie/popular", { page });
     return Response.json(data);
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 500 });
+    return Response.json({ error: "Failed to fetch popular movies" }, { status: 500 });
   }
 }

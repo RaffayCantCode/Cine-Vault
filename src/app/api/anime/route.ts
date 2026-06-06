@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[Anime API Route Error]:", error);
     return Response.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch anime", success: false },
+      { error: "Failed to fetch anime", success: false },
       { status: 500 }
     );
   }

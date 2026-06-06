@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Sidebar } from "@/components/Sidebar";
 import { AnimePlayer } from "@/components/AnimePlayer";
 import { fetchJson, cn } from "@/lib/utils";
 import type { SeasonInfo } from "@/lib/anime-fetch";
-import { Star, ArrowLeft, Tv2, Clock, ChevronLeft, ChevronRight, List, Calendar, Lock, Play } from "lucide-react";
+import { Star, ArrowLeft, Tv2, Clock, ChevronLeft, ChevronRight, List, Calendar, Lock, Play, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface AnimeDetail {
@@ -48,6 +48,7 @@ interface Episode {
 
 export default function AnimeDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params?.id as string;
   const { status: authStatus } = useSession();
 
@@ -57,6 +58,7 @@ export default function AnimeDetailPage() {
   const [episodesLoading, setEpisodesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedEp, setSelectedEp] = useState<Episode | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [currentSeasonId, setCurrentSeasonId] = useState<string>(id);
 
@@ -103,8 +105,6 @@ export default function AnimeDetailPage() {
           return { ...ep, isReleased: !ep.releasedDate || new Date(ep.releasedDate) <= today };
         });
         setEpisodes(withRelease);
-        const first = withRelease.find(ep => ep.isReleased !== false) || withRelease[0];
-        if (first) setSelectedEp(first);
       }
     } catch { /* silent */ }
     finally { setEpisodesLoading(false); }
@@ -115,46 +115,64 @@ export default function AnimeDetailPage() {
     loadEpisodes(id);
   }, [id, loadEpisodes]);
 
+  // Autoplay via URL params (from ContinueWatching, etc.)
   useEffect(() => {
-    if (selectedEp) {
-      setTimeout(() => {
-        playerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 150);
+    const autoPlay = searchParams.get("autoplay") === "1";
+    const seasonParam = Number(searchParams.get("season") || "");
+    const episodeParam = Number(searchParams.get("episode") || "");
+    if (autoPlay && episodes.length > 0) {
+      const target = episodes.find(ep =>
+        (ep.seasonNum === seasonParam || !seasonParam) &&
+        ep.episodeNum === (episodeParam || 1)
+      );
+      if (target) {
+        setSelectedEp(target);
+        setIsPlaying(true);
+      }
     }
-  }, [selectedEp?.episodeId]);
+  }, [searchParams, episodes]);
 
-  // Record watch history when an episode is selected (logged-in users only)
   useEffect(() => {
-    if (!selectedEp || !anime || authStatus !== "authenticated") return;
-
-    const numericId = parseInt(anime.id, 10);
-    if (Number.isNaN(numericId)) return;
-
-    fetch("/api/watch-history", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mediaId: numericId,
-        mediaType: "anime",
-        title: anime.name,
-        posterPath: anime.poster || null,
-        backdropPath: null,
-        season: selectedEp.seasonNum || 1,
-        episode: selectedEp.episodeNum,
-        episodeName: selectedEp.title || `Episode ${selectedEp.episodeNum}`,
-      }),
-    }).catch(() => {});
-  }, [selectedEp?.episodeId, anime?.id, authStatus]);
+    if (!selectedEp || !isPlaying || episodesLoading) return;
+    const id = requestAnimationFrame(() => {
+      playerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [selectedEp?.episodeId, isPlaying, episodesLoading]);
 
   const handleSeasonClick = async (season: SeasonInfo) => {
     if (season.id === currentSeasonId) return;
     setCurrentSeasonId(season.id);
-    // Switch episode list to this season's tab
+    setIsPlaying(false);
+    setSelectedEp(null);
     const seasonIdx = seasons.findIndex(s => s.id === season.id);
     if (seasonIdx >= 0) setCurrentPage(seasonIdx);
-    const firstEp = episodes.find(ep => ep.seasonId === season.id);
-    if (firstEp) {
-      setSelectedEp(firstEp);
+    loadEpisodes(season.id);
+  };
+
+  const handleWatchEpisode = (ep: Episode) => {
+    if (ep.isReleased === false) return;
+    setSelectedEp(ep);
+    setIsPlaying(true);
+
+    if (authStatus === "authenticated" && anime) {
+      const numericId = parseInt(anime.id, 10);
+      if (!Number.isNaN(numericId)) {
+        fetch("/api/watch-history", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mediaId: numericId,
+            mediaType: "anime",
+            title: anime.name,
+            posterPath: anime.poster || null,
+            backdropPath: null,
+            season: ep.seasonNum || 1,
+            episode: ep.episodeNum,
+            episodeName: ep.title || `Episode ${ep.episodeNum}`,
+          }),
+        }).catch(() => {});
+      }
     }
   };
 
@@ -191,7 +209,7 @@ export default function AnimeDetailPage() {
     if (currentIdx > 0) {
       const prev = episodes[currentIdx - 1];
       if (prev.isReleased === false) return;
-      setSelectedEp(prev);
+      handleWatchEpisode(prev);
     }
   };
 
@@ -199,13 +217,12 @@ export default function AnimeDetailPage() {
     if (currentIdx < episodes.length - 1) {
       const next = episodes[currentIdx + 1];
       if (next.isReleased === false) return;
-      setSelectedEp(next);
+      handleWatchEpisode(next);
     }
   };
 
   const handleSelectEp = (ep: Episode) => {
-    if (ep.isReleased === false) return;
-    setSelectedEp(ep);
+    handleWatchEpisode(ep);
   };
 
   const handleAutoNext = () => handleNext();
@@ -214,6 +231,10 @@ export default function AnimeDetailPage() {
   // When currentSeasonId changes, ONLY process that season's episodes
   const thumbnailFetchingRef = useRef(new Set<string>());
   const thumbTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const thumbEpVersionRef = useRef(0);
+  useEffect(() => {
+    thumbEpVersionRef.current++;
+  }, [episodes.length, currentSeasonId]);
   useEffect(() => {
     if (thumbTimerRef.current) clearTimeout(thumbTimerRef.current);
 
@@ -222,8 +243,17 @@ export default function AnimeDetailPage() {
     const needThumb = currentEps.filter(ep => !ep.thumbnail && ep.malUrl && !loading.has(ep.episodeId));
     if (needThumb.length === 0) return;
 
+    const selectedEpId = selectedEp?.episodeId;
+    if (selectedEpId) {
+      const selIdx = needThumb.findIndex(ep => ep.episodeId === selectedEpId);
+      if (selIdx > 0) {
+        const [sel] = needThumb.splice(selIdx, 1);
+        needThumb.unshift(sel);
+      }
+    }
+
     let i = 0;
-    const BATCH = 3;
+    const BATCH = 6;
     const tick = () => {
       const batch = needThumb.slice(i, i + BATCH);
       i += BATCH;
@@ -241,12 +271,12 @@ export default function AnimeDetailPage() {
           .catch(() => {})
           .finally(() => loading.delete(ep.episodeId));
       }
-      if (i < needThumb.length) thumbTimerRef.current = setTimeout(tick, 400);
+      if (i < needThumb.length) thumbTimerRef.current = setTimeout(tick, 200);
     };
     tick();
 
     return () => { if (thumbTimerRef.current) clearTimeout(thumbTimerRef.current); };
-  }, [episodes, currentSeasonId, id]);
+  }, [thumbEpVersionRef.current, currentSeasonId, id, selectedEp?.episodeId]);
 
   const seasons = anime?.seasons || [];
 
@@ -319,6 +349,28 @@ export default function AnimeDetailPage() {
                       {anime.genres.slice(0, 5).map(g => <span key={g} className="text-[9px] text-[#7288AE] bg-[#4B5694]/10 border border-[#7288AE]/20 px-2 py-0.5 rounded-full font-bold backdrop-blur-sm">{g}</span>)}
                     </div>
                   )}
+
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }}>
+                    {!episodesLoading && episodes.length > 0 ? (
+                      <button
+                        onClick={() => {
+                          const first = episodes.find(ep => ep.isReleased !== false) || episodes[0];
+                          handleWatchEpisode(first);
+                        }}
+                        className="group flex items-center gap-2.5 bg-primary hover:bg-primary/85 active:scale-95 text-primary-foreground font-bold px-8 py-4 rounded-xl text-sm transition-all duration-200 shadow-xl shadow-primary/25"
+                      >
+                        <Play className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />
+                        Watch S{episodes[0].seasonNum || 1} E{episodes[0].episodeNum}
+                      </button>
+                    ) : !episodesLoading ? (
+                      <button
+                        disabled
+                        className="flex items-center gap-2.5 bg-white/10 text-white/30 font-bold px-8 py-4 rounded-xl text-sm cursor-not-allowed"
+                      >
+                        No Episodes Available
+                      </button>
+                    ) : null}
+                  </motion.div>
                 </motion.div>
               </div>
             </div>
@@ -334,7 +386,7 @@ export default function AnimeDetailPage() {
                 {/* Grid: Player | Queue */}
                 <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6">
                   <div ref={playerRef} className="w-full min-w-0">
-                    {selectedEp && !episodesLoading && (
+                    {isPlaying && selectedEp && !episodesLoading && (
                       <motion.div
                         key={selectedEp.episodeId}
                         initial={{ opacity: 0, y: 16 }}
@@ -360,7 +412,7 @@ export default function AnimeDetailPage() {
                       </div>
                     )}
 
-                    {selectedEp && !episodesLoading && (
+                    {isPlaying && selectedEp && !episodesLoading && (
                       <div className="mt-4 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                           <span className="text-lg font-black text-white">Episode {selectedEp.episodeNum}</span>
@@ -387,7 +439,7 @@ export default function AnimeDetailPage() {
                   </div>
 
                   {/* Episode Queue Sidebar */}
-                  {selectedEp && !episodesLoading && (
+                  {isPlaying && selectedEp && !episodesLoading && (
                     <aside className="w-full rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden flex flex-col max-h-[60vh] xl:max-h-[70vh]">
                       <div className="p-4 border-b border-white/[0.06] bg-white/[0.01]">
                         <div className="text-sm font-bold text-white flex items-center justify-between">
@@ -578,7 +630,7 @@ export default function AnimeDetailPage() {
                                   src={ep.thumbnail}
                                   alt={ep.title || `Episode ${ep.episodeNum}`}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                  onError={(e) => { e.currentTarget.src = ""; }}
+                                  loading="lazy"
                                 />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center bg-card">

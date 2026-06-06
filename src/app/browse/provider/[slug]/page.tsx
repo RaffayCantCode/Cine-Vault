@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { MediaCard } from "@/components/MediaCard";
 import { fetchJson } from "@/lib/utils";
 import { getProviderBySlug, PROVIDERS } from "@/lib/providers";
+import { ProviderIcon } from "@/components/ProviderIcon";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
@@ -50,7 +51,7 @@ export default function ProviderPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const pages = page === 1 ? [1, 2] : [page];
+        const pages = [page];
         const [movieResults, tvResults] = await Promise.all([
           Promise.all(
             pages.map((p) =>
@@ -122,7 +123,7 @@ export default function ProviderPage() {
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [items.length > 0]);
 
   if (!provider) {
     return (
@@ -169,10 +170,10 @@ export default function ProviderPage() {
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center font-black text-xl shrink-0 border border-white/10 shadow-lg"
+              className="w-16 h-16 rounded-2xl flex items-center justify-center shrink-0 border border-white/10 shadow-lg"
               style={{ background: provider.color, color: provider.textColor, boxShadow: `0 8px 24px ${provider.color}40` }}
             >
-              {provider.short}
+              <ProviderIcon slug={provider.slug} className="w-8 h-8" />
             </div>
             <div>
               <p className="text-[10px] text-[#7288AE]/50 font-semibold tracking-[0.15em] uppercase mb-1">Streaming on</p>

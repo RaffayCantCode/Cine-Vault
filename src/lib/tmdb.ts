@@ -70,6 +70,95 @@ export async function tmdbFetch(
   return filterTmdbResponse(data);
 }
 
+// In-memory cache for TMDB anime show lookups (keyed by anime name + year)
+const tmdbShowCache = new Map<string, { id: number; expires: number }>();
+
+export interface TmdbEpisodeData {
+  seasonNum: number;
+  episodeNum: number;
+  title: string;
+  thumbnail: string | null;
+  description: string | null;
+}
+
+/**
+ * Search TMDB for a TV show by name + year, return the TMDB show ID.
+ */
+export async function searchTmdbShow(name: string, year?: number): Promise<number | null> {
+  const cacheKey = `${name}:${year || ""}`;
+  const cached = tmdbShowCache.get(cacheKey);
+  if (cached && cached.expires > Date.now()) return cached.id;
+
+  try {
+    const cleanName = name.replace(/[^\w\s]/g, "").trim();
+    const params: Record<string, string> = { query: cleanName };
+    const data = await tmdbFetch("/search/tv", params) as { results?: { id: number; name: string; first_air_date?: string }[] };
+    const results = data?.results || [];
+
+    // Try to match by year first
+    if (year) {
+      for (const show of results) {
+        const showYear = show.first_air_date ? parseInt(show.first_air_date.slice(0, 4), 10) : 0;
+        if (showYear && Math.abs(showYear - year) <= 1) {
+          tmdbShowCache.set(cacheKey, { id: show.id, expires: Date.now() + 86400000 });
+          return show.id;
+        }
+      }
+    }
+
+    // Fallback: use the first result if available
+    if (results.length > 0) {
+      tmdbShowCache.set(cacheKey, { id: results[0].id, expires: Date.now() + 86400000 });
+      return results[0].id;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch TMDB episode data for a given show and list of season numbers.
+ * Returns a map keyed by "seasonNum-episodeNum".
+ */
+export async function fetchTmdbEpisodeData(
+  tmdbId: number,
+  seasonNumbers: number[]
+): Promise<Map<string, TmdbEpisodeData>> {
+  const episodeMap = new Map<string, TmdbEpisodeData>();
+
+  for (const seasonNum of seasonNumbers) {
+    try {
+      const data = await tmdbFetch(`/tv/${tmdbId}/season/${seasonNum}`) as {
+        episodes?: {
+          episode_number: number;
+          name: string;
+          overview: string | null;
+          still_path: string | null;
+        }[];
+      };
+      const eps = data?.episodes || [];
+      for (const ep of eps) {
+        const key = `${seasonNum}-${ep.episode_number}`;
+        episodeMap.set(key, {
+          seasonNum,
+          episodeNum: ep.episode_number,
+          title: ep.name || "",
+          thumbnail: ep.still_path
+            ? `https://image.tmdb.org/t/p/w300${ep.still_path}`
+            : null,
+          description: ep.overview || null,
+        });
+      }
+    } catch {
+      // Season not found, skip
+    }
+  }
+
+  return episodeMap;
+}
+
 function filterTmdbResponse(data: unknown): unknown {
   if (!data || typeof data !== "object" || !("results" in data)) {
     return data;

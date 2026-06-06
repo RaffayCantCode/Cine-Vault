@@ -15,7 +15,6 @@ export async function GET(request: NextRequest) {
     const data = await tmdbFetch(`/search/${type}`, { query, page, include_adult: "false" });
     return Response.json(data);
   } catch (error) {
-    const message = error instanceof Error && error.message ? error.message : "Failed to search";
-    return Response.json({ error: message }, { status: 500 });
+    return Response.json({ error: "Failed to search" }, { status: 500 });
   }
 }

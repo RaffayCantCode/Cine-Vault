@@ -48,7 +48,7 @@ export async function fetchJson<T = unknown>(
     try {
       data = text ? JSON.parse(text) : null;
     } catch {
-      data = text;
+      data = null;
     }
 
     if (!res.ok) {

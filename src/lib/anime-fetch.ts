@@ -2,6 +2,8 @@
 // Metadata: AniList (primary) + Jikan (fallback)
 // Streaming: iframe embed sources only (no HLS)
 
+import { isAdultContent } from "./content-filter";
+
 export interface AnimeItem {
   id: string;
   idMal?: string | null;
@@ -488,7 +490,7 @@ async function fetchEpisodesFromJikan(
       if (pageEps.length === 0) break;
 
       for (const ep of pageEps) {
-        const epNum = ep.mal_id;
+        const epNum = typeof ep.episode === "number" ? ep.episode : ep.mal_id;
         if (!epNum || epNum > maxEpisodes) continue;
         allEps.push({
           episodeId: `${anilistId}-${epNum}`,
@@ -575,6 +577,9 @@ async function batchScrapeThumbnails(
   );
 }
 
+// In-memory cache for anime detail fetches (avoids duplicate Jikan crawls)
+const detailCache = new Map<string, { data: any; expires: number }>();
+
 // Main fetch function for the API routes
 export async function fetchAnimeApi(
   endpoint: string,
@@ -593,9 +598,14 @@ export async function fetchAnimeApi(
 
   if (isDetail || isSeries) {
     const id = path.replace("/series/", "").split("?")[0];
+    const cacheKey = `detail:${id}`;
+    const cached = detailCache.get(cacheKey);
+    if (cached && cached.expires > Date.now()) {
+      return cached.data;
+    }
     const result = await getAnimeDetails(id);
     if (result) {
-      return {
+      const response = {
         success: true,
         data: {
           ...result.anime,
@@ -604,6 +614,8 @@ export async function fetchAnimeApi(
           seasons: result.seasons,
         },
       };
+      detailCache.set(cacheKey, { data: response, expires: Date.now() + 300000 });
+      return response;
     }
     throw new Error("Anime not found");
   }
@@ -614,20 +626,20 @@ export async function fetchAnimeApi(
     if (items.length === 0) {
       items = await searchViaJikan(keyword);
     }
-    return { success: true, data: items };
+    return { success: true, data: items.filter((item) => !isAdultContent(item.name, item.genres, item.description)) };
   }
 
   if (isAiring) {
     const items = await getAiringAnime(page, genre);
-    return { success: true, data: items };
+    return { success: true, data: items.filter((item) => !isAdultContent(item.name, item.genres, item.description)) };
   }
 
   if (isTrending) {
     const items = await getTrendingAnime(page, genre);
-    return { success: true, data: items };
+    return { success: true, data: items.filter((item) => !isAdultContent(item.name, item.genres, item.description)) };
   }
 
   // default: popular
   const items = await getPopularAnime(page, genre);
-  return { success: true, data: items };
+  return { success: true, data: items.filter((item) => !isAdultContent(item.name, item.genres, item.description)) };
 }

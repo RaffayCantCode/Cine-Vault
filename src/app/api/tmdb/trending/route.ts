@@ -13,6 +13,6 @@ export async function GET(request: NextRequest) {
     });
     return Response.json(data);
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : "Failed" }, { status: 500 });
+    return Response.json({ error: "Failed to fetch trending" }, { status: 500 });
   }
 }

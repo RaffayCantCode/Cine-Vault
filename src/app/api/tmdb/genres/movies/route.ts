@@ -5,8 +5,6 @@ export async function GET() {
     const data = await tmdbFetch("/genre/movie/list");
     return Response.json(data);
   } catch (error) {
-    const message =
-      error instanceof Error && error.message ? error.message : "Failed to fetch genres";
-    return Response.json({ error: message }, { status: 500 });
+    return Response.json({ error: "Failed to fetch genres" }, { status: 500 });
   }
 }
