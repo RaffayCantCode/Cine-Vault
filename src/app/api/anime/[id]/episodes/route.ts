@@ -52,6 +52,23 @@ function parseAnimeTitleAndSeason(rawName: string): { baseTitle: string; tmdbSea
     return { baseTitle, tmdbSeason };
   }
 
+  // "R2", "R3" style suffix (e.g. "Code Geass: Lelouch of the Rebellion R2")
+  // When standalone (no "Season" word), R = second entry, R3 = third, etc.
+  const rMatch = rawName.match(/(?:^|[\s:])(R(?:2|3|4|5|6|7|8|9))(?:\b|$)/i);
+  if (rMatch) {
+    const rNum = rMatch[1].toUpperCase();
+    const rDigit = rNum === "R" ? 1 : parseInt(rNum.substring(1), 10);
+    tmdbSeason = rDigit + 1; // R = 2nd, R2 = 3rd, etc. (per Code Geass convention)
+    baseTitle = rawName.replace(/(?:[\s:])(R(?:2|3|4|5|6|7|8|9))(?:\b).*/i, "").trim();
+    return { baseTitle, tmdbSeason };
+  }
+  // Trailing "R" with no digit (Code Geass S2 = R2 style) - check after "R2" pattern
+  if (/(?:^|[\s:])R(?:\b|$)/i.test(rawName)) {
+    tmdbSeason = 2;
+    baseTitle = rawName.replace(/(?:[\s:])R(?:\b).*/i, "").trim();
+    return { baseTitle, tmdbSeason };
+  }
+
   // Strip split cour / part suffixes from TMDB search
   if (/Part\s+\d+/i.test(rawName)) {
     baseTitle = rawName.replace(/[\s:]+Part\s+\d+.*/i, "").trim();
@@ -182,20 +199,33 @@ export async function GET(
 
       // TMDB enrichment for this season (with season parsing & dynamic offset calculation)
       try {
-        const animeName = meta.anime.name;
-        const animeJname = meta.anime.jname;
-        const seasonYear: number | undefined = meta.anime.seasonYear ?? undefined;
+        // Use THIS season's name (not the parent franchise's name) to find the right TMDB show
+        // and to determine which TMDB season to fetch.
+        const seasonName = season.name;
+        const seasonJname = (season as any).jname as string | undefined;
+        const seasonYear: number | undefined = season.seasonYear ?? meta.anime.seasonYear ?? undefined;
 
-        const parsed = parseAnimeTitleAndSeason(animeName);
-        const parsedJ = animeJname ? parseAnimeTitleAndSeason(animeJname) : null;
+        const parsed = parseAnimeTitleAndSeason(seasonName);
+        const parsedJ = seasonJname ? parseAnimeTitleAndSeason(seasonJname) : null;
+
+        // Determine which TMDB season to fetch:
+        // 1) Use the season number parsed from the title (handles "Season N", "Nth Season", "Final Season")
+        // 2) If parser didn't find one (defaulted to 1) AND this isn't the first season in the franchise,
+        //    fall back to the franchise position (handles cases like "Code Geass: Lelouch of the Rebellion R2")
+        // 3) For split-cour/part, the parser typically still extracts the right base season
+        //    (e.g. "Attack on Titan Final Season Part 1" → 4)
+        let tmdbSeason = parsed.tmdbSeason;
+        if (tmdbSeason === 1 && seasonNumFromList > 1) {
+          tmdbSeason = seasonNumFromList;
+        }
 
         let tmdbId: number | null = null;
         if (parsed.baseTitle) tmdbId = await searchTmdbShow(parsed.baseTitle, seasonYear);
         if (!tmdbId && parsedJ?.baseTitle) tmdbId = await searchTmdbShow(parsedJ.baseTitle, seasonYear);
 
         if (tmdbId) {
-          // Fetch the parsed season episodes from TMDB
-          const seasonsToFetch = [parsed.tmdbSeason];
+          // Fetch the resolved TMDB season's episodes
+          const seasonsToFetch = [tmdbSeason];
           const tmdbEpisodes = await fetchTmdbEpisodeData(tmdbId, seasonsToFetch);
 
           // Try to match by title to find an episode number offset (crucial for split-cours/parts)
@@ -222,7 +252,7 @@ export async function GET(
           // Apply TMDB enrichment with the calculated offset
           seasonEps = seasonEps.map((ep: any) => {
             const targetEpNum = ep.episodeNum + offset;
-            const key = `${parsed.tmdbSeason}-${targetEpNum}`;
+            const key = `${tmdbSeason}-${targetEpNum}`;
             const tmdb = tmdbEpisodes.get(key);
             if (!tmdb) return ep;
             return {
@@ -304,18 +334,20 @@ export async function GET(
         }
         seasonEps.sort((a: any, b: any) => a.episodeNum - b.episodeNum);
 
-        // TMDB enrichment
+        // TMDB enrichment (use THIS season's name, not the parent franchise's)
         try {
-          const animeName = meta.anime.name;
-          const animeJname = meta.anime.jname;
-          const seasonYear: number | undefined = meta.anime.seasonYear ?? undefined;
+          const seasonName = season.name;
+          const seasonJname = (season as any).jname as string | undefined;
+          const seasonYear: number | undefined = season.seasonYear ?? meta.anime.seasonYear ?? undefined;
           let tmdbId: number | null = null;
-          if (animeName) tmdbId = await searchTmdbShow(animeName, seasonYear);
-          if (!tmdbId && animeJname) tmdbId = await searchTmdbShow(animeJname, seasonYear);
+          if (seasonName) tmdbId = await searchTmdbShow(seasonName, seasonYear);
+          if (!tmdbId && seasonJname) tmdbId = await searchTmdbShow(seasonJname, seasonYear);
           if (tmdbId) {
-            const tmdbEpisodes = await fetchTmdbEpisodeData(tmdbId, [seasonNumParam]);
+            // Use the franchise position for TMDB season (seasonIdx is already the franchise index)
+            const tmdbSeason = seasonIdx + 1;
+            const tmdbEpisodes = await fetchTmdbEpisodeData(tmdbId, [tmdbSeason]);
             seasonEps = seasonEps.map((ep: any) => {
-              const key = `${seasonNumParam}-${ep.episodeNum}`;
+              const key = `${tmdbSeason}-${ep.episodeNum}`;
               const tmdb = tmdbEpisodes.get(key);
               if (!tmdb) return ep;
               return { ...ep, title: tmdb.title || ep.title, thumbnail: tmdb.thumbnail || ep.thumbnail, description: tmdb.description || ep.description };
@@ -352,23 +384,64 @@ export async function GET(
       seasonMalId: ep.seasonMalId || null,
     }));
 
-    // TMDB enrichment (non-blocking)
-    const animeName: string | undefined = data?.data?.name;
-    const animeJname: string | undefined = data?.data?.jname;
-    const seasonYear: number | undefined = data?.data?.seasonYear;
+    // TMDB enrichment (season-aware — use each season's own name, not the franchise root's)
     if (episodes.length > 0) {
       try {
-        const uniqueSeasonNums = [...new Set(episodes.map((ep: any) => ep.seasonNum || 1))] as number[];
-        let tmdbId: number | null = null;
-        if (animeName) tmdbId = await searchTmdbShow(animeName, seasonYear);
-        if (!tmdbId && animeJname) tmdbId = await searchTmdbShow(animeJname, seasonYear);
-        if (tmdbId) {
-          const tmdbEpisodes = await fetchTmdbEpisodeData(tmdbId, uniqueSeasonNums);
+        // Group episodes by seasonId (fall back to seasonNum) so we can search TMDB per season
+        const bySeason = new Map<string, { name?: string; eps: any[]; seasonNum: number }>();
+        for (const ep of episodes) {
+          const key = String(ep.seasonId ?? `num-${ep.seasonNum ?? 1}`);
+          if (!bySeason.has(key)) {
+            bySeason.set(key, {
+              name: ep.seasonName || undefined,
+              eps: [],
+              seasonNum: ep.seasonNum || 1,
+            });
+          }
+          bySeason.get(key)!.eps.push(ep);
+        }
+
+        // Resolve a single TMDB show per franchise (use first season with a name; usually the same show)
+        // then fetch the right TMDB season per group.
+        const enriched = new Map<string, { title?: string; thumbnail?: string | null; description?: string | null }>();
+        let cachedTmdbId: number | null = null;
+
+        for (const [, group] of bySeason) {
+          const searchName = group.name || data?.data?.name;
+          if (!searchName) continue;
+
+          // Reuse TMDB ID across seasons (same franchise usually maps to one show)
+          if (cachedTmdbId == null) {
+            cachedTmdbId = await searchTmdbShow(searchName, data?.data?.seasonYear);
+            if (cachedTmdbId == null && data?.data?.jname) {
+              cachedTmdbId = await searchTmdbShow(data.data.jname, data?.data?.seasonYear);
+            }
+          }
+          if (cachedTmdbId == null) continue;
+
+          // Fetch only this group's TMDB season
+          const tmdbEpisodes = await fetchTmdbEpisodeData(cachedTmdbId, [group.seasonNum]);
+          for (const tmdbEp of tmdbEpisodes.values()) {
+            const key = `${group.seasonNum}-${tmdbEp.episodeNum}`;
+            enriched.set(key, {
+              title: tmdbEp.title,
+              thumbnail: tmdbEp.thumbnail,
+              description: tmdbEp.description,
+            });
+          }
+        }
+
+        if (enriched.size > 0) {
           episodes = episodes.map((ep: any) => {
             const key = `${ep.seasonNum || 1}-${ep.episodeNum}`;
-            const tmdb = tmdbEpisodes.get(key);
+            const tmdb = enriched.get(key);
             if (!tmdb) return ep;
-            return { ...ep, title: tmdb.title || ep.title, thumbnail: tmdb.thumbnail || ep.thumbnail, description: tmdb.description || ep.description };
+            return {
+              ...ep,
+              title: tmdb.title || ep.title,
+              thumbnail: tmdb.thumbnail || ep.thumbnail,
+              description: tmdb.description || ep.description,
+            };
           });
         }
       } catch {

@@ -90,6 +90,16 @@ export interface TmdbEpisodeData {
   title: string;
   thumbnail: string | null;
   description: string | null;
+  vote_average?: number;
+  runtime?: number;
+}
+
+export interface TmdbSeason {
+  id: number;
+  season_number: number;
+  name: string;
+  overview?: string;
+  episodes: TmdbEpisodeData[];
 }
 
 /**
@@ -170,6 +180,8 @@ export async function fetchTmdbEpisodeData(
           name: string;
           overview: string | null;
           still_path: string | null;
+          vote_average?: number;
+          runtime?: number;
         }[];
       };
       const eps = data?.episodes || [];
@@ -183,6 +195,8 @@ export async function fetchTmdbEpisodeData(
             ? `https://image.tmdb.org/t/p/w300${ep.still_path}`
             : null,
           description: ep.overview || null,
+          vote_average: ep.vote_average,
+          runtime: ep.runtime,
         });
       }
     } catch {
@@ -191,6 +205,52 @@ export async function fetchTmdbEpisodeData(
   }
 
   return episodeMap;
+}
+
+/**
+ * Fetch a full TMDB season (with overview + episodes) for a TV show.
+ * Returns null if the season doesn't exist.
+ */
+export async function fetchTmdbSeason(
+  tmdbId: number,
+  seasonNumber: number
+): Promise<TmdbSeason | null> {
+  try {
+    const data = await tmdbFetch(`/tv/${tmdbId}/season/${seasonNumber}`) as {
+      id: number;
+      season_number: number;
+      name: string;
+      overview?: string;
+      episodes?: {
+        episode_number: number;
+        name: string;
+        overview: string | null;
+        still_path: string | null;
+        vote_average?: number;
+        runtime?: number;
+      }[];
+    };
+
+    return {
+      id: data.id,
+      season_number: data.season_number,
+      name: data.name,
+      overview: data.overview,
+      episodes: (data.episodes || []).map((ep) => ({
+        seasonNum: data.season_number,
+        episodeNum: ep.episode_number,
+        title: ep.name || "",
+        thumbnail: ep.still_path
+          ? `https://image.tmdb.org/t/p/w300${ep.still_path}`
+          : null,
+        description: ep.overview || null,
+        vote_average: ep.vote_average,
+        runtime: ep.runtime,
+      })),
+    };
+  } catch {
+    return null;
+  }
 }
 
 function filterTmdbResponse(data: unknown): unknown {

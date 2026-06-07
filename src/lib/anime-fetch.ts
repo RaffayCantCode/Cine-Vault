@@ -29,6 +29,7 @@ export interface SeasonInfo {
   totalEpisodes: number;
   isCurrent: boolean;
   idMal?: number | null;
+  seasonYear?: number | null;
 }
 
 export interface EpisodeDetail {
@@ -434,6 +435,7 @@ function buildSeasonList(nodes: FranchiseNode[], currentId: number): SeasonInfo[
       totalEpisodes: totalEp,
       isCurrent: node.id === currentId,
       idMal: node.idMal,
+      seasonYear: node.seasonYear,
     };
   });
 }

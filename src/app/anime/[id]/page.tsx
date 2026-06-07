@@ -29,6 +29,7 @@ interface AnimeDetail {
   seasonYear?: number | null;
   format?: string | null;
   openedSeasonId?: string | null;
+  tmdbId?: number | null;
 }
 
 interface Episode {
@@ -45,6 +46,23 @@ interface Episode {
   seasonId?: string;
   seasonName?: string;
   seasonMalId?: number | null;
+}
+
+interface TmdbEpisode {
+  episodeNum: number;
+  title: string;
+  thumbnail: string | null;
+  description: string | null;
+  vote_average?: number;
+  runtime?: number;
+}
+
+interface TmdbSeasonData {
+  id: number;
+  season_number: number;
+  name: string;
+  overview: string;
+  episodes: TmdbEpisode[];
 }
 
 export default function AnimeDetailPage() {
@@ -64,6 +82,12 @@ export default function AnimeDetailPage() {
   // Franchise node data for Season Guide
   const [franchiseNodes, setFranchiseNodes] = useState<FranchiseNode[]>([]);
   const [showSeasonGuide, setShowSeasonGuide] = useState(false);
+
+  // TMDB season data (for rich episode display — same UX as the TV show page)
+  const [tmdbSeason, setTmdbSeason] = useState<TmdbSeasonData | null>(null);
+  const [tmdbSeasonLoading, setTmdbSeasonLoading] = useState(false);
+  const tmdbIdRef = useRef<number | null>(null);
+  const tmdbSeasonRef = useRef<number | null>(null);
 
   interface FranchiseNode {
     id: number;
@@ -128,6 +152,9 @@ export default function AnimeDetailPage() {
     if (!id) return;
     let cancelled = false;
     loadedSeasonIds.current.clear();
+    setTmdbSeason(null);
+    tmdbIdRef.current = null;
+    tmdbSeasonRef.current = null;
 
     const loadMeta = async () => {
       setIsLoading(true);
@@ -139,6 +166,7 @@ export default function AnimeDetailPage() {
           const a = data.data.anime;
           setAnime(a);
           if (data.data.franchiseNodes) setFranchiseNodes(data.data.franchiseNodes);
+          tmdbIdRef.current = a.tmdbId || null;
 
           // Determine which season should be pre-selected:
           // 1) The openedSeasonId returned by the server (the URL ID resolves to its canonical season)
@@ -198,12 +226,79 @@ export default function AnimeDetailPage() {
     return () => cancelAnimationFrame(animId);
   }, [selectedEp?.episodeId, isPlaying, episodesLoading]);
 
+  // ── Fetch TMDB season for display (matches the TV show page UX) ────────
+  // Maps a franchise position to a TMDB season number:
+  //   "Season N"   → TMDB season N
+  //   "Special N"  → TMDB season 0  (TMDB convention for specials)
+  //   "Movie N"    → no TMDB data
+  //   "OVA N"      → no TMDB data
+  const seasonIdxForTmdb = useCallback((season: SeasonInfo, allSeasons: SeasonInfo[]): number | null => {
+    const label = season.seasonLabel || "";
+    if (/^Season\s+\d+$/i.test(label)) {
+      const idx = allSeasons.findIndex(s => s.id === season.id);
+      return idx >= 0 ? idx + 1 : null;
+    }
+    if (/^Special\s+\d+$/i.test(label)) {
+      return 0; // TMDB stores specials in season 0
+    }
+    return null; // Movies/OVAs have no TMDB season equivalent
+  }, []);
+
+  useEffect(() => {
+    if (!tmdbIdRef.current || !anime) return;
+    const seasons = anime.seasons || [];
+    const season = seasons.find(s => s.id === currentSeasonId);
+    if (!season) return;
+    const tmdbSeasonNum = seasonIdxForTmdb(season, seasons);
+    if (tmdbSeasonNum === null) {
+      setTmdbSeason(null);
+      tmdbSeasonRef.current = null;
+      return;
+    }
+    let cancelled = false;
+    setTmdbSeasonLoading(true);
+    setTmdbSeason(null);
+    fetch(`/api/tmdb/tv/${tmdbIdRef.current}/season/${tmdbSeasonNum}`)
+      .then(r => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data && data.id && Array.isArray(data.episodes)) {
+          const mapped: TmdbSeasonData = {
+            id: data.id,
+            season_number: data.season_number,
+            name: data.name || "",
+            overview: data.overview || "",
+            episodes: (data.episodes || []).map((ep: any) => ({
+              episodeNum: ep.episode_number,
+              title: ep.name || "",
+              thumbnail: ep.still_path
+                ? `https://image.tmdb.org/t/p/w300${ep.still_path}`
+                : null,
+              description: ep.overview || null,
+              vote_average: ep.vote_average,
+              runtime: ep.runtime,
+            })),
+          };
+          setTmdbSeason(mapped);
+          tmdbSeasonRef.current = tmdbSeasonNum;
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setTmdbSeason(null);
+      })
+      .finally(() => {
+        if (!cancelled) setTmdbSeasonLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [currentSeasonId, anime, seasonIdxForTmdb]);
+
   // ── Season click handler ────────────────────────────────────────────────
   const handleSeasonClick = useCallback((season: SeasonInfo) => {
     if (season.id === currentSeasonId) return;
     setCurrentSeasonId(season.id);
     setIsPlaying(false);
     setSelectedEp(null);
+    setTmdbSeason(null); // will refetch on season change
     loadSeasonEpisodes(season.id);
   }, [currentSeasonId, loadSeasonEpisodes]);
 
@@ -261,18 +356,10 @@ export default function AnimeDetailPage() {
     setVisibleCount(EPISODES_PER_PAGE);
   }, [currentSeasonId]);
 
-  const displayedEps = useMemo(
-    () => currentSeasonEps.slice(0, visibleCount),
-    [currentSeasonEps, visibleCount]
-  );
-
-  const hasMoreEps = visibleCount < currentSeasonEps.length;
-
   const currentIdx = useMemo(
     () => currentSeasonEps.findIndex(e => e.episodeId === selectedEp?.episodeId),
     [currentSeasonEps, selectedEp]
   );
-
   const currentSeasonInfo = useMemo(
     () => seasons.find(s => s.id === currentSeasonId),
     [seasons, currentSeasonId]
@@ -469,7 +556,7 @@ export default function AnimeDetailPage() {
                         <Play className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />
                         {isSingleItem
                           ? `Watch ${anime.type === "MOVIE" ? "Movie" : "Anime"}`
-                          : `Watch Episode ${currentSeasonEps[0]?.episodeNum || 1}`
+                          : `Watch S${currentSeasonInfo ? seasons.findIndex(s => s.id === currentSeasonId) + 1 : 1} E${currentSeasonEps[0]?.episodeNum || 1}`
                         }
                       </button>
                     ) : !episodesLoading ? (
@@ -502,7 +589,7 @@ export default function AnimeDetailPage() {
                         >
                           <AnimePlayer
                             animeId={selectedEp.seasonId || currentSeasonId}
-                            malId={selectedEp.seasonMalId != null ? String(selectedEp.seasonMalId) : anime.idMal}
+                            malId={selectedEp.seasonMalId != null ? String(selectedEp.seasonMalId) : null}
                             animeTitle={selectedEp.seasonName || anime.name}
                             episode={selectedEp.episodeNum}
                             onAutoNext={handleAutoNext}
@@ -567,6 +654,9 @@ export default function AnimeDetailPage() {
                         <div className="flex-1 overflow-y-auto p-2 space-y-1 scrollbar-hide">
                           {currentSeasonEps.map((ep) => {
                             const isSelected = selectedEp?.episodeId === ep.episodeId;
+                            // Prefer TMDB title (richer display) when available
+                            const tmdbEp = tmdbSeason?.episodes.find(t => t.episodeNum === ep.episodeNum);
+                            const displayTitle = tmdbEp?.title || ep.title || `Episode ${ep.episodeNum}`;
                             return (
                               <button
                                 key={ep.episodeId}
@@ -579,7 +669,7 @@ export default function AnimeDetailPage() {
                                 }`}
                               >
                                 <span className="text-sm font-black w-10 shrink-0">E{ep.episodeNum}</span>
-                                <span className="text-xs truncate flex-1 line-clamp-1">{ep.title || `Episode ${ep.episodeNum}`}</span>
+                                <span className="text-xs truncate flex-1 line-clamp-1">{displayTitle}</span>
                               </button>
                             );
                           })}
@@ -596,53 +686,6 @@ export default function AnimeDetailPage() {
                       <h3 className="text-base font-bold text-white mb-3">Synopsis</h3>
                       <p className="text-white/60 text-sm leading-relaxed whitespace-pre-line">{anime.description || "No synopsis available."}</p>
                     </div>
-
-                    {/* ── Season Guide Section ── */}
-                    {franchiseNodes.length > 1 && (
-                      <div className="bg-white/[0.02] border border-white/[0.06] p-6 rounded-2xl">
-                        <button
-                          onClick={() => setShowSeasonGuide(!showSeasonGuide)}
-                          className="flex items-center justify-between w-full text-left"
-                        >
-                          <div className="flex items-center gap-2">
-                            <BookOpen className="w-4 h-4 text-[#7288AE]" />
-                            <h3 className="text-base font-bold text-white">Season Guide</h3>
-                          </div>
-                          <ChevronRight className={`w-4 h-4 text-white/40 transition-transform ${showSeasonGuide ? "rotate-90" : ""}`} />
-                        </button>
-
-                        {showSeasonGuide && (
-                          <div className="mt-4 space-y-2">
-                            {seasons.map((s, idx) => {
-                              const node = franchiseNodes.find(n => n.id === parseInt(s.id, 10));
-                              const isActive = s.id === currentSeasonId;
-                              const yearStr = node?.seasonYear ? String(node.seasonYear) : "";
-                              return (
-                                <button
-                                  key={s.id}
-                                  onClick={() => handleSeasonClick(s)}
-                                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
-                                    isActive
-                                      ? "bg-gradient-to-r from-[#111844]/30 to-[#7288AE]/20 border border-[#7288AE]/30 text-white"
-                                      : "bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-white/60 hover:text-white"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-3 min-w-0">
-                                    <span className="text-[#7288AE] font-bold shrink-0 w-16 text-left">{s.seasonLabel}</span>
-                                    <span className="truncate">{s.name}</span>
-                                  </div>
-                                  <div className="flex items-center gap-2 shrink-0 ml-2">
-                                    {yearStr && <span className="text-white/30 text-[10px]">{yearStr}</span>}
-                                    <span className="text-white/40 text-[10px] bg-white/[0.06] px-2 py-0.5 rounded-md">{s.totalEpisodes} eps</span>
-                                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#7288AE] animate-pulse" />}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
 
                   <div>
@@ -713,6 +756,56 @@ export default function AnimeDetailPage() {
 
               {/* ── Episodes Section ── */}
               <section className="max-w-5xl mx-auto space-y-4 mt-10">
+                {/* ── Season Guide Section (moved here from sidebar) ── */}
+                {franchiseNodes.length > 1 && (
+                  <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden">
+                    <button
+                      onClick={() => setShowSeasonGuide(!showSeasonGuide)}
+                      className="flex items-center justify-between w-full text-left px-5 py-4 hover:bg-white/[0.02] transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <BookOpen className="w-4 h-4 text-[#7288AE]" />
+                        <h3 className="text-base font-bold text-white">Season Guide</h3>
+                        <span className="text-[10px] text-white/30 font-medium">
+                          {seasons.length} {seasons.length === 1 ? "entry" : "entries"}
+                        </span>
+                      </div>
+                      <ChevronRight className={`w-4 h-4 text-white/40 transition-transform ${showSeasonGuide ? "rotate-90" : ""}`} />
+                    </button>
+
+                    {showSeasonGuide && (
+                      <div className="px-5 pb-5 space-y-2 border-t border-white/[0.06] pt-4">
+                        {seasons.map((s) => {
+                          const node = franchiseNodes.find(n => n.id === parseInt(s.id, 10));
+                          const isActive = s.id === currentSeasonId;
+                          const yearStr = node?.seasonYear ? String(node.seasonYear) : "";
+                          return (
+                            <button
+                              key={s.id}
+                              onClick={() => handleSeasonClick(s)}
+                              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                                isActive
+                                  ? "bg-gradient-to-r from-[#111844]/30 to-[#7288AE]/20 border border-[#7288AE]/30 text-white"
+                                  : "bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-white/60 hover:text-white"
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className="text-[#7288AE] font-bold shrink-0 w-16 text-left">{s.seasonLabel}</span>
+                                <span className="truncate">{s.name}</span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0 ml-2">
+                                {yearStr && <span className="text-white/30 text-[10px]">{yearStr}</span>}
+                                <span className="text-white/40 text-[10px] bg-white/[0.06] px-2 py-0.5 rounded-md">{s.totalEpisodes} eps</span>
+                                {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[#7288AE] animate-pulse" />}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-1.5 h-6 bg-gradient-to-b from-[#7288AE] to-[#4B5694] rounded-full shadow-lg" />
@@ -748,134 +841,242 @@ export default function AnimeDetailPage() {
                   )}
                 </div>
 
-                {episodesLoading ? (
-                  <div className="flex flex-col items-center justify-center p-12 rounded-2xl border border-white/[0.06] bg-white/[0.02] min-h-[260px] text-center backdrop-blur-md relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-tr from-[#4B5694]/5 via-transparent to-[#7288AE]/5 animate-pulse" />
-                    <div className="relative z-10 space-y-4">
-                      <div className="relative w-16 h-16 mx-auto animate-spin">
-                        <div className="absolute inset-0 border-4 border-[#7288AE]/10 rounded-full" />
-                        <div className="absolute inset-0 border-4 border-t-primary rounded-full" />
-                      </div>
-                      <div className="space-y-1">
-                        <h3 className="text-lg font-bold text-white tracking-wide animate-pulse">Episodes Loading</h3>
-                        <p className="text-sm text-white/40">Please wait while we fetch the latest episodes...</p>
-                      </div>
-                    </div>
-                  </div>
-                ) : displayedEps.length ? (
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={currentSeasonId}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ duration: 0.25 }}
-                      className="space-y-3 pt-2"
-                    >
-                      {displayedEps.map((ep) => {
-                        const isSelected = selectedEp?.episodeId === ep.episodeId;
-                        const isUnreleased = ep.isReleased === false;
-                        return (
-                          <div key={ep.episodeId}>
-                            <div
-                              onClick={() => !isUnreleased && handleWatchEpisode(ep)}
-                              className={cn(
-                                "group flex gap-4 p-3.5 rounded-2xl border transition-all duration-300 cursor-pointer select-none touch-manipulation",
-                                isSelected
-                                  ? "ring-2 ring-[#7288AE] bg-gradient-to-br from-[#4B5694]/15 to-[#7288AE]/10 border-transparent shadow-lg shadow-[#4B5694]/20"
-                                  : isUnreleased
-                                  ? "opacity-50 cursor-not-allowed bg-white/[0.01] border-white/[0.03]"
-                                  : "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.07] hover:border-white/[0.12]"
-                              )}
-                            >
-                              {/* Episode Number — show for any season with 2+ episodes */}
-                              {currentSeasonEps.length > 1 && (
-                                <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-lg bg-white/[0.05] shrink-0 self-start mt-1">
-                                  <span className="text-sm font-bold text-white/40">{ep.episodeNum}</span>
-                                </div>
-                              )}
+                {/* ── TMDB-Powered Episode Display (matches TV show page UX) ── */}
+                {(() => {
+                  // Build a list of episodes with merged display + streaming data
+                  // TMDB provides: title, thumbnail, description, rating, runtime
+                  // Jikan/AniList provides: episodeId, seasonId, seasonMalId (for streaming)
+                  type DisplayEp = {
+                    epNum: number;
+                    displayTitle: string;
+                    displayThumbnail: string | null;
+                    displayDescription: string | null;
+                    vote_average?: number;
+                    runtime?: number;
+                    jikanEp: Episode | null;
+                    isUnreleased: boolean;
+                    isFiller: boolean;
+                    releasedDate?: string;
+                  };
 
-                              {/* Thumbnail */}
-                              <div className={`${isSingleItem ? "w-48 md:w-56 aspect-[2/3]" : "w-36 md:w-48 aspect-video"} shrink-0 rounded-xl overflow-hidden bg-muted relative self-start`}>
-                                {(ep.thumbnail || (isSingleItem && anime?.poster)) ? (
-                                  <img
-                                    src={(isSingleItem && !ep.thumbnail) ? anime!.poster : ep.thumbnail!}
-                                    alt={ep.title || `Episode ${ep.episodeNum}`}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center bg-card">
-                                    <Play className="w-6 h-6 text-white/20" />
-                                  </div>
-                                )}
-                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
-                                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#4B5694] to-[#7288AE] flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform duration-300">
-                                    <Play className="w-4 h-4 fill-white text-white ml-0.5" />
-                                  </div>
-                                </div>
-                                {isSelected && (
-                                  <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded bg-[#7288AE] text-white text-[8px] font-extrabold tracking-widest uppercase">
-                                    Playing
-                                  </div>
-                                )}
-                                {isUnreleased && (
-                                  <div className="absolute inset-0 z-20 bg-black/80 flex items-center justify-center">
-                                    <Lock className="w-5 h-5 text-white/30" />
-                                  </div>
-                                )}
-                              </div>
+                  // If we have TMDB data, use it; otherwise fall back to Jikan
+                  let displayEps: DisplayEp[] = [];
 
-                              {/* Episode Info */}
-                              <div className="flex-1 min-w-0 py-0.5">
-                                <div className="flex items-start justify-between gap-2 mb-1.5">
-                                  <h4 className="font-bold text-sm leading-tight text-white">
-                                    {isSingleItem ? (
-                                      currentSeasonInfo?.name || ep.title || anime?.name
-                                    ) : (
-                                      <>
-                                        <span className="sm:hidden text-white/40 mr-1.5">E{ep.episodeNum}.</span>
-                                        {ep.title || `Episode ${ep.episodeNum}`}
-                                      </>
-                                    )}
-                                  </h4>
-                                  {ep.isFiller && (
-                                    <span className="text-[9px] text-amber-400 font-extrabold uppercase bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded shrink-0">
-                                      Filler
-                                    </span>
+                  if (tmdbSeason && tmdbSeason.episodes.length > 0) {
+                    const jikanByNum = new Map(currentSeasonEps.map(j => [j.episodeNum, j]));
+                    displayEps = tmdbSeason.episodes.map(tmdb => {
+                      const jikan = jikanByNum.get(tmdb.episodeNum) || null;
+                      return {
+                        epNum: tmdb.episodeNum,
+                        displayTitle: tmdb.title || jikan?.title || (isSingleItem ? (anime?.name || "") : `Episode ${tmdb.episodeNum}`),
+                        displayThumbnail: tmdb.thumbnail,
+                        displayDescription: tmdb.description,
+                        vote_average: tmdb.vote_average,
+                        runtime: tmdb.runtime,
+                        jikanEp: jikan,
+                        isUnreleased: jikan?.isReleased === false,
+                        isFiller: jikan?.isFiller || false,
+                        releasedDate: jikan?.releasedDate,
+                      };
+                    });
+                  } else if (currentSeasonEps.length > 0) {
+                    // Fallback: Jikan data only (no TMDB)
+                    displayEps = currentSeasonEps.map(j => ({
+                      epNum: j.episodeNum,
+                      displayTitle: j.title || (isSingleItem ? (anime?.name || "") : `Episode ${j.episodeNum}`),
+                      displayThumbnail: j.thumbnail || (isSingleItem ? anime?.poster || null : null),
+                      displayDescription: j.description || (isSingleItem ? anime?.description || null : null),
+                      jikanEp: j,
+                      isUnreleased: j.isReleased === false,
+                      isFiller: j.isFiller || false,
+                      releasedDate: j.releasedDate,
+                    }));
+                  }
+
+                  const isLoading_ = episodesLoading || (tmdbIdRef.current && !tmdbSeason && tmdbSeasonLoading);
+
+                  if (isLoading_ && displayEps.length === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center p-12 rounded-2xl border border-white/[0.06] bg-white/[0.02] min-h-[260px] text-center backdrop-blur-md relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-tr from-[#4B5694]/5 via-transparent to-[#7288AE]/5 animate-pulse" />
+                        <div className="relative z-10 space-y-4">
+                          <div className="relative w-16 h-16 mx-auto animate-spin">
+                            <div className="absolute inset-0 border-4 border-[#7288AE]/10 rounded-full" />
+                            <div className="absolute inset-0 border-4 border-t-primary rounded-full" />
+                          </div>
+                          <div className="space-y-1">
+                            <h3 className="text-lg font-bold text-white tracking-wide animate-pulse">Episodes Loading</h3>
+                            <p className="text-sm text-white/40">Please wait while we fetch the latest episodes...</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (displayEps.length === 0) {
+                    return (
+                      <div className="p-8 text-center text-white/30 text-sm">
+                        No episodes available
+                      </div>
+                    );
+                  }
+
+                  const sliceEps = displayEps.slice(0, visibleCount);
+                  const hasMore = visibleCount < displayEps.length;
+
+                  return (
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={currentSeasonId}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.25 }}
+                      >
+                        {/* Season description (TMDB overview) */}
+                        {tmdbSeason?.overview && (
+                          <p className="text-white/40 text-sm leading-relaxed mb-6 max-w-2xl italic">
+                            {tmdbSeason.overview}
+                          </p>
+                        )}
+
+                        <div className="space-y-3">
+                          {sliceEps.map((ep, i) => {
+                            const isSelected = selectedEp?.episodeId === ep.jikanEp?.episodeId;
+                            const isUnreleased = ep.isUnreleased;
+                            const thumbSrc = ep.displayThumbnail
+                              || (isSingleItem && anime?.poster)
+                              || null;
+                            return (
+                              <motion.div
+                                key={`${currentSeasonId}-${ep.epNum}-${ep.jikanEp?.episodeId || 'tmdb'}`}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: i * 0.025, duration: 0.3 }}
+                                onClick={() => {
+                                  if (isUnreleased) return;
+                                  // Prefer Jikan ep (has streaming metadata); build a synthetic one if only TMDB exists
+                                  let toPlay = ep.jikanEp;
+                                  if (!toPlay) {
+                                    const seasonMalId = currentSeasonInfo?.idMal ?? null;
+                                    toPlay = {
+                                      episodeId: `${currentSeasonId}-${ep.epNum}`,
+                                      episodeNum: ep.epNum,
+                                      title: ep.displayTitle,
+                                      thumbnail: ep.displayThumbnail,
+                                      description: ep.displayDescription || undefined,
+                                      seasonNum: currentSeasonInfo ? seasons.findIndex(s => s.id === currentSeasonId) + 1 : 1,
+                                      seasonId: currentSeasonId,
+                                      seasonName: currentSeasonInfo?.name,
+                                      seasonMalId,
+                                    } as Episode;
+                                    console.log(`[Anime Click] Synthetic episode for ${currentSeasonId}/${ep.epNum} (no Jikan match). AniList=${currentSeasonId}, MAL=${seasonMalId}`);
+                                  } else {
+                                    console.log(`[Anime Click] Playing ${toPlay.seasonId}/${toPlay.episodeNum} (AniList=${toPlay.seasonId}, MAL=${toPlay.seasonMalId}) via Jikan`);
+                                  }
+                                  handleWatchEpisode(toPlay);
+                                }}
+                                className={cn(
+                                  "group flex gap-4 p-3.5 rounded-2xl border transition-all duration-300 cursor-pointer select-none touch-manipulation",
+                                  isSelected
+                                    ? "ring-2 ring-[#7288AE] bg-gradient-to-br from-[#4B5694]/15 to-[#7288AE]/10 border-transparent shadow-lg shadow-[#4B5694]/20"
+                                    : isUnreleased
+                                    ? "opacity-50 cursor-not-allowed bg-white/[0.01] border-white/[0.03]"
+                                    : "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.07] hover:border-white/[0.12]"
+                                )}
+                              >
+                                {/* Episode Number — show for any season with 2+ episodes */}
+                                {displayEps.length > 1 && (
+                                  <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-lg bg-white/[0.05] shrink-0 self-start mt-1">
+                                    <span className="text-sm font-bold text-white/40">{ep.epNum}</span>
+                                  </div>
+                                )}
+
+                                {/* Thumbnail */}
+                                <div className={`${isSingleItem ? "w-48 md:w-56 aspect-[2/3]" : "w-36 md:w-48 aspect-video"} shrink-0 rounded-xl overflow-hidden bg-muted relative self-start`}>
+                                  {thumbSrc ? (
+                                    <img
+                                      src={thumbSrc}
+                                      alt={ep.displayTitle || `Episode ${ep.epNum}`}
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-card">
+                                      <Play className="w-6 h-6 text-white/20" />
+                                    </div>
+                                  )}
+                                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20">
+                                    <div className="w-10 h-10 rounded-full bg-primary/90 flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform duration-300">
+                                      <Play className="w-4 h-4 fill-white text-white ml-0.5" />
+                                    </div>
+                                  </div>
+                                  {isSelected && (
+                                    <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded bg-[#7288AE] text-white text-[8px] font-extrabold tracking-widest uppercase">
+                                      Playing
+                                    </div>
+                                  )}
+                                  {isUnreleased && (
+                                    <div className="absolute inset-0 z-20 bg-black/80 flex items-center justify-center">
+                                      <Lock className="w-5 h-5 text-white/30" />
+                                    </div>
                                   )}
                                 </div>
-                                {ep.releasedDate && (
-                                  <p className="text-[10px] text-white/30 mb-1 font-medium">
-                                    {new Date(ep.releasedDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-                                  </p>
-                                )}
-                                <p className="text-white/40 text-xs leading-relaxed line-clamp-2">
-                                  {isSingleItem ? (anime?.description || ep.description) : (ep.description || "")}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
 
-                      {hasMoreEps && (
-                        <div className="flex justify-center pt-2 pb-4">
-                          <button
-                            onClick={() => setVisibleCount(c => c + EPISODES_PER_PAGE)}
-                            className="px-8 py-3 rounded-xl bg-gradient-to-r from-[#4B5694] to-[#7288AE] text-white text-sm font-bold hover:shadow-xl hover:shadow-[#4B5694]/25 transition-all"
-                          >
-                            Show {Math.min(EPISODES_PER_PAGE, currentSeasonEps.length - visibleCount)} More Episodes
-                          </button>
+                                {/* Episode Info */}
+                                <div className="flex-1 min-w-0 py-0.5">
+                                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                                    <h4 className="font-bold text-sm leading-tight text-white">
+                                      <span className="sm:hidden text-white/40 mr-1.5">E{ep.epNum}.</span>
+                                      {ep.displayTitle}
+                                    </h4>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      {ep.vote_average && ep.vote_average > 0 && (
+                                        <div className="flex items-center gap-0.5 text-amber-400">
+                                          <Star className="w-3 h-3 fill-current" />
+                                          <span className="font-bold text-xs">{ep.vote_average.toFixed(1)}</span>
+                                        </div>
+                                      )}
+                                      {ep.isFiller && (
+                                        <span className="text-[9px] text-amber-400 font-extrabold uppercase bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded">
+                                          Filler
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {ep.releasedDate && (
+                                    <p className="text-[10px] text-white/30 mb-1 font-medium">
+                                      {new Date(ep.releasedDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                                    </p>
+                                  )}
+                                  {ep.displayDescription && (
+                                    <p className="text-white/40 text-xs leading-relaxed line-clamp-2">
+                                      {ep.displayDescription}
+                                    </p>
+                                  )}
+                                  {ep.runtime && ep.runtime > 0 && (
+                                    <p className="text-white/30 text-xs mt-1.5">{ep.runtime} min</p>
+                                  )}
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+
+                          {hasMore && (
+                            <div className="flex justify-center pt-2 pb-4">
+                              <button
+                                onClick={() => setVisibleCount(c => c + EPISODES_PER_PAGE)}
+                                className="px-8 py-3 rounded-xl bg-gradient-to-r from-[#4B5694] to-[#7288AE] text-white text-sm font-bold hover:shadow-xl hover:shadow-[#4B5694]/25 transition-all"
+                              >
+                                Show {Math.min(EPISODES_PER_PAGE, displayEps.length - visibleCount)} More Episodes
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
-                ) : (
-                  <div className="p-8 text-center text-white/30 text-sm">
-                    No episodes available
-                  </div>
-                )}
+                      </motion.div>
+                    </AnimatePresence>
+                  );
+                })()}
               </section>
             </div>
           </>
