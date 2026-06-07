@@ -64,6 +64,17 @@ interface AniListMedia {
   seasonYear: number | null;
 }
 
+// A node in the franchise graph
+interface FranchiseNode {
+  id: number;
+  idMal: number | null;
+  title: string;
+  episodes: number | null;
+  season: string | null;
+  seasonYear: number | null;
+  format: string | null;
+}
+
 const ANILIST_API = "https://graphql.anilist.co";
 const JIKAN_BASE = "https://api.jikan.moe/v4";
 
@@ -138,6 +149,25 @@ const AIRING_QUERY = `query ($page: Int, $genre: String, $season: MediaSeason, $
     ) {
       id idMal isAdult title { romaji english native } coverImage { large extraLarge }
       episodes genres averageScore description status type format season seasonYear
+    }
+  }
+}`;
+
+// AniList relations query — fetches immediate neighbors
+const RELATIONS_QUERY = `query ($id: Int) {
+  Media(id: $id, type: ANIME) {
+    id idMal
+    title { romaji english }
+    episodes season seasonYear format
+    relations {
+      edges {
+        node {
+          id idMal
+          title { romaji english }
+          type episodes season seasonYear format isAdult
+        }
+        relationType
+      }
     }
   }
 }`;
@@ -237,28 +267,183 @@ export async function getAiringAnime(page = 1, genre?: string): Promise<AnimeIte
   }
 }
 
-const RELATIONS_QUERY = `query ($id: Int) {
-  Media(id: $id) {
-    relations {
-      edges {
-        node {
-          id idMal
-          title { romaji english native }
-          type
-          episodes
-          season
-          seasonYear
-          format
+// ─────────────────────────────────────────────────────────────────────────────
+// FRANCHISE GRAPH TRAVERSAL
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Relation types that constitute the same franchise
+const FRANCHISE_RELATION_TYPES = new Set(["SEQUEL", "PREQUEL"]);
+// These formats get included in the season list
+const INCLUDABLE_FORMATS = new Set(["TV", "TV_SHORT", "OVA", "ONA", "SPECIAL", "MOVIE"]);
+
+/**
+ * Build the complete franchise graph using BFS from a given AniList ID.
+ * Follows SEQUEL and PREQUEL edges to collect all related entries.
+ * Returns all nodes discovered, sorted chronologically.
+ */
+async function buildFranchiseGraph(startId: number): Promise<FranchiseNode[]> {
+  const visited = new Map<number, FranchiseNode>(); // id → node
+  const queue: number[] = [startId];
+  const MAX_NODES = 30; // safety cap — no franchise has 30+ entries in practice
+  const MAX_HOPS = 12;
+  let hops = 0;
+
+  while (queue.length > 0 && visited.size < MAX_NODES && hops < MAX_HOPS) {
+    // Process up to 3 nodes per hop in parallel to keep latency low
+    const batch = queue.splice(0, 3);
+    hops++;
+
+    const results = await Promise.allSettled(
+      batch.map(id => anilistQuery(RELATIONS_QUERY, { id }))
+    );
+
+    for (const result of results) {
+      if (result.status !== "fulfilled") continue;
+      const data = result.value?.data?.Media;
+      if (!data) continue;
+
+      const nodeId = data.id as number;
+      if (!visited.has(nodeId)) {
+        visited.set(nodeId, {
+          id: nodeId,
+          idMal: data.idMal || null,
+          title: data.title?.english || data.title?.romaji || "",
+          episodes: data.episodes || null,
+          season: data.season || null,
+          seasonYear: data.seasonYear || null,
+          format: data.format || null,
+        });
+      }
+
+      // Traverse edges
+      const edges = data.relations?.edges || [];
+      for (const edge of edges) {
+        const node = edge.node;
+        const relType: string = edge.relationType || "";
+        if (
+          !FRANCHISE_RELATION_TYPES.has(relType) ||
+          node.type !== "ANIME" ||
+          node.isAdult
+        ) continue;
+
+        const neighborId = node.id as number;
+        if (!visited.has(neighborId)) {
+          // Pre-add to visited immediately (with data we already have) to prevent duplicates
+          visited.set(neighborId, {
+            id: neighborId,
+            idMal: node.idMal || null,
+            title: node.title?.english || node.title?.romaji || "",
+            episodes: node.episodes || null,
+            season: node.season || null,
+            seasonYear: node.seasonYear || null,
+            format: node.format || null,
+          });
+          // Also queue it so we fetch its own relations (to continue the chain)
+          if (visited.size < MAX_NODES) {
+            queue.push(neighborId);
+          }
         }
-        relationType
       }
     }
+
+    // Small delay between hops to be nice to AniList rate limits
+    if (queue.length > 0 && hops > 1) {
+      await new Promise(r => setTimeout(r, 300));
+    }
   }
-}`;
 
-const INITIAL_EP_LIMIT = 100;
+  return [...visited.values()];
+}
 
-// Server-side in-memory cache for getAnimeDetails (TTL: 5 min)
+/**
+ * From the franchise graph, find the "root" — the earliest TV entry chronologically.
+ * If there are no TV entries, fall back to the first entry by year.
+ */
+function findFranchiseRoot(nodes: FranchiseNode[]): FranchiseNode | null {
+  if (nodes.length === 0) return null;
+
+  const seasonOrder = ["WINTER", "SPRING", "SUMMER", "FALL"];
+
+  // Prefer TV/TV_SHORT entries with the earliest air date
+  const tvNodes = nodes.filter(n => n.format === "TV" || n.format === "TV_SHORT");
+  const candidates = tvNodes.length > 0 ? tvNodes : nodes;
+
+  return candidates.sort((a, b) => {
+    const yearA = a.seasonYear || 9999;
+    const yearB = b.seasonYear || 9999;
+    if (yearA !== yearB) return yearA - yearB;
+    const seasonA = seasonOrder.indexOf(a.season || "FALL");
+    const seasonB = seasonOrder.indexOf(b.season || "FALL");
+    return seasonA - seasonB;
+  })[0] || null;
+}
+
+/**
+ * Sort and label all franchise nodes into a clean SeasonInfo list.
+ * TV entries → "Season N"
+ * OVA/ONA → "OVA N"
+ * Special → "Special N"
+ * Movie → "Movie N"
+ */
+function buildSeasonList(nodes: FranchiseNode[], currentId: number): SeasonInfo[] {
+  const seasonOrder = ["WINTER", "SPRING", "SUMMER", "FALL"];
+
+  // Filter to only includable formats with some content
+  const includable = nodes.filter(n =>
+    n.format && INCLUDABLE_FORMATS.has(n.format)
+  );
+
+  // Sort chronologically
+  includable.sort((a, b) => {
+    const yearA = a.seasonYear || 9999;
+    const yearB = b.seasonYear || 9999;
+    if (yearA !== yearB) return yearA - yearB;
+    // Within same year, sort TV before specials/OVAs
+    const formatOrder = { TV: 0, TV_SHORT: 1, ONA: 2, OVA: 3, SPECIAL: 4, MOVIE: 5 };
+    const fA = (formatOrder as any)[a.format || "TV"] ?? 6;
+    const fB = (formatOrder as any)[b.format || "TV"] ?? 6;
+    if (fA !== fB) return fA - fB;
+    const sA = seasonOrder.indexOf(a.season || "FALL");
+    const sB = seasonOrder.indexOf(b.season || "FALL");
+    return sA - sB;
+  });
+
+  let tvCount = 0;
+  let movieCount = 0;
+  let ovaCount = 0;
+  let specialCount = 0;
+
+  return includable.map(node => {
+    const isMovie = node.format === "MOVIE";
+    const isOva = node.format === "OVA" || node.format === "ONA";
+    const isSpecial = node.format === "SPECIAL";
+    const isTv = !isMovie && !isOva && !isSpecial;
+
+    let label: string;
+    if (isMovie) { movieCount++; label = `Movie ${movieCount}`; }
+    else if (isOva) { ovaCount++; label = `OVA ${ovaCount}`; }
+    else if (isSpecial) { specialCount++; label = `Special ${specialCount}`; }
+    else { tvCount++; label = `Season ${tvCount}`; }
+
+    const totalEp = isMovie || isOva || isSpecial
+      ? Math.max(node.episodes || 1, 1)
+      : Math.max(node.episodes || 12, 1);
+
+    return {
+      id: String(node.id),
+      name: node.title,
+      seasonLabel: label,
+      totalEpisodes: totalEp,
+      isCurrent: node.id === currentId,
+      idMal: node.idMal,
+    };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SERVER-SIDE CACHE
+// ─────────────────────────────────────────────────────────────────────────────
+
 const animeDetailCache = new Map<string, { data: any; expires: number }>();
 function getCachedDetail(key: string) {
   const cached = animeDetailCache.get(key);
@@ -266,24 +451,40 @@ function getCachedDetail(key: string) {
   return null;
 }
 function setCachedDetail(key: string, data: any) {
-  animeDetailCache.set(key, { data, expires: Date.now() + 300000 });
+  animeDetailCache.set(key, { data, expires: Date.now() + 300000 }); // 5 min TTL
 }
 
-// Get anime details + related seasons via AniList + Jikan fallback
-export async function getAnimeDetails(id: string, epLimit = INITIAL_EP_LIMIT, skipEpisodes = false): Promise<{
+const INITIAL_EP_LIMIT = 100;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN DETAIL FUNCTION
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch full anime franchise details for any season ID.
+ * - Builds the complete franchise graph via BFS
+ * - Always returns ALL seasons, OVAs, movies, specials
+ * - openedSeasonId: the originally-requested AniList ID (for pre-selecting the tab)
+ */
+export async function getAnimeDetails(
+  id: string,
+  epLimit = INITIAL_EP_LIMIT,
+  skipEpisodes = false
+): Promise<{
   anime: AnimeItem;
   episodes: EpisodeDetail[];
   totalEpisodes: number;
   seasons: SeasonInfo[];
+  openedSeasonId: string;
 } | null> {
   const numId = parseInt(id, 10);
   if (isNaN(numId)) return null;
 
-  const cacheKey = `${id}:${epLimit}:${skipEpisodes}`;
+  const cacheKey = `franchise:${id}:${epLimit}:${skipEpisodes}`;
   const cached = getCachedDetail(cacheKey);
   if (cached) return cached;
 
-  // Fetch main anime metadata
+  // Step 1: Fetch main media metadata for the requested ID
   let media: any = null;
   try {
     const q = `query ($id: Int) {
@@ -295,10 +496,10 @@ export async function getAnimeDetails(id: string, epLimit = INITIAL_EP_LIMIT, sk
     const data = await anilistQuery(q, { id: numId });
     media = data?.data?.Media;
   } catch {
-    // AniList failed, try Jikan fallback below
+    // AniList failed — try Jikan fallback
   }
 
-  // If AniList returned nothing, try Jikan lookup
+  // Jikan fallback for the main metadata
   if (!media) {
     try {
       const jikanRes = await fetch(
@@ -311,49 +512,42 @@ export async function getAnimeDetails(id: string, epLimit = INITIAL_EP_LIMIT, sk
         if (a && a.rating !== "rx") {
           const totalEps = Math.max(a.episodes || 12, 1);
           let episodes: EpisodeDetail[] = [];
-
           if (!skipEpisodes) {
             const realEps = await fetchEpisodesFromJikan(numId, String(numId), Math.min(totalEps, epLimit));
             if (realEps) episodes = realEps;
           }
-
           const existingNums = new Set(episodes.map(e => e.episodeNum));
           for (let i = 1; i <= Math.min(totalEps, epLimit); i++) {
             if (!existingNums.has(i)) {
               episodes.push({
-                episodeId: `${id}-${i}`,
-                episodeNum: i,
-                title: `Episode ${i}`,
-                description: null,
-                thumbnail: null,
-                malUrl: null,
-                releasedDate: null,
-                isFiller: false,
-                isRecap: false,
+                episodeId: `${id}-${i}`, episodeNum: i, title: `Episode ${i}`,
+                description: null, thumbnail: null, malUrl: null,
+                releasedDate: null, isFiller: false, isRecap: false,
+                seasonNum: 1, seasonId: id, seasonName: a.title_english || a.title,
+                seasonMalId: a.mal_id,
               });
             }
           }
           episodes.sort((a, b) => a.episodeNum - b.episodeNum);
+          const animeItem: AnimeItem = {
+            id: String(a.mal_id), idMal: String(a.mal_id),
+            name: a.title_english || a.title || "Unknown",
+            jname: a.title_japanese || null,
+            poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url || "",
+            type: a.type || "TV", episodes: { sub: a.episodes || null, dub: null },
+            rating: a.score ? String(a.score) : null, description: a.synopsis || "",
+            genres: a.genres?.map((g: any) => g.name) || [],
+            status: a.status || null, season: a.season || null,
+            seasonYear: a.year || null, format: a.type || null,
+          };
+          const jikanSeason: SeasonInfo = {
+            id: String(a.mal_id), name: animeItem.name,
+            seasonLabel: "Season 1", totalEpisodes: totalEps,
+            isCurrent: true, idMal: a.mal_id,
+          };
           const jikanResult = {
-            anime: {
-              id: String(a.mal_id),
-              idMal: String(a.mal_id),
-              name: a.title_english || a.title || "Unknown",
-              jname: a.title_japanese || null,
-              poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url || "",
-              type: a.type || "TV",
-              episodes: { sub: a.episodes || null, dub: null },
-              rating: a.score ? String(a.score) : null,
-              description: a.synopsis || "",
-              genres: a.genres?.map((g: any) => g.name) || [],
-              status: a.status || null,
-              season: a.season || null,
-              seasonYear: a.year || null,
-              format: a.type || null,
-            },
-            episodes,
-            totalEpisodes: totalEps,
-            seasons: [],
+            anime: animeItem, episodes, totalEpisodes: totalEps,
+            seasons: [jikanSeason], openedSeasonId: id,
           };
           setCachedDetail(cacheKey, jikanResult);
           return jikanResult;
@@ -366,152 +560,76 @@ export async function getAnimeDetails(id: string, epLimit = INITIAL_EP_LIMIT, sk
   const anime = transformAniList(media);
   if (!anime) return null;
 
-  // Fetch relations separately (don't fail main query if relations time out)
-  const VALID_RELATION_TYPES = new Set(["SEQUEL", "PREQUEL", "SIDE_STORY"]);
-  let relatedSeasons: { id: number; idMal: number | null; title: string; episodes: number; season: string; seasonYear: number; format: string | null }[] = [];
+  // Step 2: Build the complete franchise graph via BFS
+  let franchiseNodes: FranchiseNode[] = [];
   try {
-    const relData = await anilistQuery(RELATIONS_QUERY, { id: numId });
-    const edges = relData?.data?.Media?.relations?.edges || [];
-    for (const edge of edges) {
-      const node = edge.node;
-      const relType: string = edge.relationType || "";
-      if (node.type === "ANIME" && VALID_RELATION_TYPES.has(relType)) {
-        // Skip entries with 0 episodes unless they're movies or specials
-        if ((node.episodes === null || node.episodes === 0) && node.format !== "MOVIE" && node.format !== "SPECIAL" && node.format !== "OVA" && node.format !== "ONA") {
-          continue;
-        }
-        relatedSeasons.push({
-          id: node.id,
-          idMal: node.idMal || null,
-          title: node.title?.english || node.title?.romaji || "",
-          episodes: node.episodes || 0,
-          season: node.season || "FALL",
-          seasonYear: node.seasonYear || 0,
-          format: node.format || null,
-        });
-      }
-    }
+    franchiseNodes = await buildFranchiseGraph(numId);
   } catch {
-    // Relations failed, proceed without seasons
+    // If BFS fails, fall back to just this entry
+    franchiseNodes = [{
+      id: numId,
+      idMal: media.idMal || null,
+      title: anime.name,
+      episodes: media.episodes || null,
+      season: media.season || null,
+      seasonYear: media.seasonYear || null,
+      format: media.format || null,
+    }];
   }
 
-  const isMovieFormat = media.format === "MOVIE" || media.format === "SPECIAL" || media.format === "OVA" || media.format === "ONA";
+  // Step 3: Build the season list from the complete franchise graph
+  const seasons = buildSeasonList(franchiseNodes, numId);
 
-  // Build season list
-  const seen = new Set<number>();
-  const currentEntry = {
-    id: numId,
-    idMal: media.idMal || null,
-    title: anime.name,
-    episodes: media.episodes,
-    season: media.season || "FALL",
-    seasonYear: media.seasonYear || 0,
-    format: media.format,
-  };
+  // Step 4: Compute total episode count from all seasons
+  const totalEpisodes = seasons.reduce((sum, s) => sum + s.totalEpisodes, 0);
 
-  const allSeasons = [currentEntry, ...relatedSeasons].filter(s => {
-    if (seen.has(s.id)) return false;
-    seen.add(s.id);
-    return true;
-  });
-
-  const seasonOrder = ["WINTER", "SPRING", "SUMMER", "FALL"];
-  allSeasons.sort((a, b) => {
-    if (a.seasonYear !== b.seasonYear) return a.seasonYear - b.seasonYear;
-    return seasonOrder.indexOf(a.season) - seasonOrder.indexOf(b.season);
-  });
-
-  let tvCount = 0;
-  let movieCount = 0;
-  let ovaCount = 0;
-  let specialCount = 0;
-  const seasons: SeasonInfo[] = allSeasons.map((s, i) => {
-    const isMovie = s.format === "MOVIE";
-    const isOva = s.format === "OVA" || s.format === "ONA";
-    const isSpecial = s.format === "SPECIAL";
-    const isTv = !isMovie && !isOva && !isSpecial;
-
-    let label: string;
-    if (isMovie) { movieCount++; label = `Movie ${movieCount}`; }
-    else if (isOva) { ovaCount++; label = `OVA ${ovaCount}`; }
-    else if (isSpecial) { specialCount++; label = `Special ${specialCount}`; }
-    else { tvCount++; label = `Season ${tvCount}`; }
-
-    const totalEp = isMovie || isOva || isSpecial
-      ? Math.max(s.episodes || 1, 1)
-      : Math.max(s.episodes || 12, 1);
-    return {
-      id: String(s.id),
-      name: s.title,
-      seasonLabel: label,
-      totalEpisodes: totalEp,
-      isCurrent: s.id === numId,
-      idMal: s.idMal,
-    };
-  });
-
-  const totalEpisodes = allSeasons.reduce((sum, s) => sum + Math.max(s.episodes || 1, 1), 0);
-
-  // Skip full episode fetching when only metadata is needed (faster initial load)
+  // Step 5: If skipEpisodes, generate placeholder episodes for all seasons
   if (skipEpisodes) {
     const basicEpisodes: EpisodeDetail[] = [];
-    allSeasons.forEach((s, idx) => {
-      const seasonId = String(s.id);
-      const isMovie = s.format === "MOVIE" || s.format === "SPECIAL" || s.format === "OVA" || s.format === "ONA";
-      const count = isMovie ? 1 : Math.min(Math.max(s.episodes || 1, 1), epLimit);
+    seasons.forEach((s, idx) => {
+      const seasonId = s.id;
+      const isSpecialFormat = ["Movie", "OVA", "Special"].some(t => s.seasonLabel.startsWith(t));
+      const count = isSpecialFormat ? 1 : Math.min(s.totalEpisodes, epLimit);
       for (let i = 1; i <= count; i++) {
         basicEpisodes.push({
           episodeId: `${seasonId}-${i}`,
           episodeNum: i,
-          title: i === 1 && isMovie ? s.title : `Episode ${i}`,
-          description: null,
-          thumbnail: null,
-          malUrl: null,
-          releasedDate: null,
-          isFiller: false,
-          isRecap: false,
+          title: i === 1 && isSpecialFormat ? s.name : `Episode ${i}`,
+          description: null, thumbnail: null, malUrl: null,
+          releasedDate: null, isFiller: false, isRecap: false,
           seasonNum: idx + 1,
           seasonId,
-          seasonName: s.title,
+          seasonName: s.name,
           seasonMalId: s.idMal || null,
         });
       }
     });
-    const skipResult = { anime, episodes: basicEpisodes, totalEpisodes, seasons };
+    const skipResult = { anime, episodes: basicEpisodes, totalEpisodes, seasons, openedSeasonId: id };
     setCachedDetail(cacheKey, skipResult);
     return skipResult;
   }
 
-  // Fetch episodes for ALL seasons sequentially (avoid Jikan rate limits) and combine
+  // Step 6: Fetch real episodes for ALL seasons sequentially
   const allCombinedEpisodes: EpisodeDetail[] = [];
-  for (const [idx, s] of allSeasons.entries()) {
-    if (idx > 0) await new Promise(r => setTimeout(r, 1000));
+  for (const [idx, s] of seasons.entries()) {
+    if (idx > 0) await new Promise(r => setTimeout(r, 800));
 
-    const seasonId = String(s.id);
-    let seasonMalId = s.idMal;
-
-    // If AniList relation didn't include idMal, try fetching it separately
-    if (seasonMalId === null) {
-      try {
-        const q = `query ($id: Int) { Media(id: $id, type: ANIME) { idMal } }`;
-        const md = await anilistQuery(q, { id: s.id });
-        seasonMalId = md?.data?.Media?.idMal || null;
-        if (seasonMalId) await new Promise(r => setTimeout(r, 400));
-      } catch { /* use null */ }
-    }
-
-    const isMovie = s.format === "MOVIE" || s.format === "SPECIAL" || s.format === "OVA" || s.format === "ONA";
-    const maxEp = isMovie
-      ? Math.max(s.episodes || 1, 1)
-      : Math.max(s.episodes || 12, 1);
+    const seasonId = s.id;
+    const seasonMalId = s.idMal;
+    const isSpecialFormat = ["Movie", "OVA", "Special"].some(t => s.seasonLabel.startsWith(t));
+    const maxEp = isSpecialFormat
+      ? Math.max(s.totalEpisodes, 1)
+      : Math.max(s.totalEpisodes, 1);
 
     const seasonCap = Math.min(maxEp, epLimit);
     let seasonEps: EpisodeDetail[] = [];
+
     if (seasonMalId) {
       const realEps = await fetchEpisodesFromJikan(seasonMalId, seasonId, seasonCap);
       if (realEps) seasonEps = realEps;
     }
 
+    // Fill missing episode numbers with placeholders
     const existingNums = new Set(seasonEps.map(e => e.episodeNum));
     for (let i = 1; i <= seasonCap; i++) {
       if (!existingNums.has(i)) {
@@ -519,12 +637,8 @@ export async function getAnimeDetails(id: string, epLimit = INITIAL_EP_LIMIT, sk
           episodeId: `${seasonId}-${i}`,
           episodeNum: i,
           title: `Episode ${i}`,
-          description: null,
-          thumbnail: null,
-          malUrl: null,
-          releasedDate: null,
-          isFiller: false,
-          isRecap: false,
+          description: null, thumbnail: null, malUrl: null,
+          releasedDate: null, isFiller: false, isRecap: false,
         });
       }
     }
@@ -533,19 +647,27 @@ export async function getAnimeDetails(id: string, epLimit = INITIAL_EP_LIMIT, sk
     seasonEps.forEach(ep => {
       ep.seasonNum = idx + 1;
       ep.seasonId = seasonId;
-      ep.seasonName = s.title;
-      ep.seasonMalId = seasonMalId;
+      ep.seasonName = s.name;
+      ep.seasonMalId = seasonMalId || null;
     });
 
     allCombinedEpisodes.push(...seasonEps);
   }
 
-  const realTotal = allCombinedEpisodes.length;
-
-  const fullResult = { anime, episodes: allCombinedEpisodes, totalEpisodes: realTotal, seasons };
+  const fullResult = {
+    anime,
+    episodes: allCombinedEpisodes,
+    totalEpisodes: allCombinedEpisodes.length,
+    seasons,
+    openedSeasonId: id,
+  };
   setCachedDetail(cacheKey, fullResult);
   return fullResult;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEARCH / LISTING APIs
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Search via Jikan (fallback)
 export async function searchViaJikan(query: string): Promise<AnimeItem[]> {
@@ -572,6 +694,10 @@ export async function searchViaJikan(query: string): Promise<AnimeItem[]> {
     return [];
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JIKAN EPISODE FETCHING
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Fetch real episode metadata (titles, thumbnails, airdates) from Jikan
 export async function fetchEpisodesFromJikan(
@@ -688,6 +814,10 @@ export async function fetchEpisodesFromJikanPage(
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// THUMBNAIL FETCHING
+// ─────────────────────────────────────────────────────────────────────────────
+
 // In-memory thumbnail cache (keyed by MAL episode URL)
 const thumbnailCache = new Map<string, string>();
 
@@ -701,19 +831,15 @@ async function scrapeEpisodeThumbnail(malUrl: string): Promise<string | null> {
     if (!res.ok) return null;
     const html = await res.text();
 
-    // Try Crunchyroll CDN thumbnail (episode-specific screenshot)
     const crMatch = html.match(/https?:\/\/img\d\.ak\.crunchyroll\.com\/[^"'\s]+\.(?:jpg|jpeg|png|webp)/i);
     if (crMatch) return crMatch[0];
 
-    // Try any large lazyload image in the video embed
     const lazyMatch = html.match(/data-src="([^"]+)"[^>]*width="800"/i);
     if (lazyMatch) return lazyMatch[1];
 
-    // Try poster attribute on video element
     const posterMatch = html.match(/poster="([^"]+)"/i);
     if (posterMatch) return posterMatch[1];
 
-    // Fall back to og:image (anime poster)
     const ogMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i);
     if (ogMatch) return ogMatch[1];
 
@@ -731,26 +857,12 @@ export async function fetchEpisodeThumbnail(malUrl: string): Promise<string | nu
   return thumb;
 }
 
-// Batch-scrape thumbnails for episodes (all episodes, non-blocking)
-async function batchScrapeThumbnails(
-  episodes: EpisodeDetail[]
-): Promise<void> {
-  const toScrape = episodes.filter(ep => ep.malUrl && !ep.thumbnail);
-  if (toScrape.length === 0) return;
+// ─────────────────────────────────────────────────────────────────────────────
+// LEGACY fetchAnimeApi (used by main API route)
+// ─────────────────────────────────────────────────────────────────────────────
 
-  await Promise.allSettled(
-    toScrape.map((ep, i) =>
-      new Promise(resolve => setTimeout(resolve, i * 100))
-        .then(() => fetchEpisodeThumbnail(ep.malUrl!))
-        .then(thumb => { if (thumb) ep.thumbnail = thumb; })
-    )
-  );
-}
-
-// In-memory cache for anime detail fetches (avoids duplicate Jikan crawls)
 const detailCache = new Map<string, { data: any; expires: number }>();
 
-// Main fetch function for the API routes
 export async function fetchAnimeApi(
   endpoint: string,
   isDetail = false
@@ -761,18 +873,16 @@ export async function fetchAnimeApi(
   const genre = params.get("genre") || undefined;
 
   const isSearch = path.includes("/search") || path.includes("keyword=");
-  const isPopular = path.includes("/popular");
   const isAiring = path.includes("/airing") || path.includes("/latest") || path.includes("/recent");
   const isTrending = path.includes("/trending");
   const isSeries = path.startsWith("/series/");
 
   if (isDetail || isSeries) {
     const id = path.replace("/series/", "").split("?")[0];
-    const cacheKey = `detail:${id}`;
+    const cacheKey = `api:detail:${id}`;
     const cached = detailCache.get(cacheKey);
-    if (cached && cached.expires > Date.now()) {
-      return cached.data;
-    }
+    if (cached && cached.expires > Date.now()) return cached.data;
+
     const result = await getAnimeDetails(id);
     if (result) {
       const response = {
@@ -782,6 +892,7 @@ export async function fetchAnimeApi(
           episodes: result.episodes,
           totalEpisodes: result.totalEpisodes,
           seasons: result.seasons,
+          openedSeasonId: result.openedSeasonId,
         },
       };
       detailCache.set(cacheKey, { data: response, expires: Date.now() + 300000 });
@@ -813,4 +924,3 @@ export async function fetchAnimeApi(
   const items = await getPopularAnime(page, genre);
   return { success: true, data: items.filter((item) => !isAdultContent(item.name, item.genres, item.description)) };
 }
-

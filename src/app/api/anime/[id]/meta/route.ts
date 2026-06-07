@@ -16,7 +16,7 @@ export async function GET(
       );
     }
 
-    const { anime, totalEpisodes, seasons } = data;
+    const { anime, totalEpisodes, seasons, openedSeasonId } = data;
     return Response.json({
       success: true,
       data: {
@@ -24,6 +24,7 @@ export async function GET(
           ...anime,
           totalEpisodes,
           seasons,
+          openedSeasonId,
         },
       },
     });
