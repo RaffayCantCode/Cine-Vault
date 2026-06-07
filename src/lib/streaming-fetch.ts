@@ -26,25 +26,27 @@ const STREAMING_APIS: StreamingAPIConfig[] = [
   },
   {
     name: "Source 3",
-    baseUrl: "https://vidsrc.mov",
-    type: "vidsrcmov",
+    baseUrl: "https://ezvidapi.com",
+    type: "ezvidapi",
     quality: "Best",
-    healthCheckUrl: "https://vidsrc.mov",
+    supportsNativeFullscreen: true,
+    healthCheckUrl: "https://ezvidapi.com",
   },
   {
     name: "Source 4",
-    baseUrl: "https://vidlink.pro",
-    type: "vidlink",
-    quality: "HD",
+    baseUrl: "https://apiplayer.ru",
+    type: "apiplayer",
+    quality: "Best",
     supportsNativeFullscreen: true,
-    healthCheckUrl: "https://vidlink.pro",
+    healthCheckUrl: "https://apiplayer.ru",
   },
   {
     name: "Source 5",
-    baseUrl: "https://vidsrc.to",
-    type: "vidsrcto",
+    baseUrl: "https://screenscape.me",
+    type: "screenscape",
     quality: "HD",
-    healthCheckUrl: "https://vidsrc.to",
+    supportsNativeFullscreen: true,
+    healthCheckUrl: "https://screenscape.me",
   },
 ];
 
@@ -52,23 +54,27 @@ function buildEmbedUrl(api: StreamingAPIConfig, type: "movie" | "tv", id: number
   switch (api.type) {
     case "cinesrc":
       if (type === "movie") return `${api.baseUrl}/embed/movie/${id}`;
-      return `${api.baseUrl}/embed/tv/${id}?s=${season ?? 1}&e=${episode ?? 1}`;
+      // optimized: autonext enables auto-play next episode
+      return `${api.baseUrl}/embed/tv/${id}?s=${season ?? 1}&e=${episode ?? 1}&autonext=true`;
 
     case "vidsrcfyi":
       if (type === "movie") return `${api.baseUrl}/embed/movie/${id}`;
       return `${api.baseUrl}/embed/tv/${id}/${season ?? 1}/${episode ?? 1}`;
 
-    case "vidsrcmov":
+    case "ezvidapi":
+      // Premium: ad-free, 4 providers with auto-failover, edge-cached 12 regions, 40+ VTT subtitle languages
+      if (type === "movie") return `${api.baseUrl}/embed/movie/${id}`;
+      return `${api.baseUrl}/embed/tv/${id}/${season ?? 1}/${episode ?? 1}?provider=vidsrc`;
+
+    case "apiplayer":
+      // Premium: multi-source failover, HLS quality selector, OpenSubtitles, postMessage API, resume watching, skip intro
       if (type === "movie") return `${api.baseUrl}/embed/movie/${id}`;
       return `${api.baseUrl}/embed/tv/${id}/${season ?? 1}/${episode ?? 1}`;
 
-    case "vidlink":
-      if (type === "movie") return `${api.baseUrl}/movie/${id}`;
-      return `${api.baseUrl}/tv/${id}/${season ?? 1}/${episode ?? 1}`;
-
-    case "vidsrcto":
-      if (type === "movie") return `${api.baseUrl}/embed/movie/${id}`;
-      return `${api.baseUrl}/embed/tv/${id}/${season ?? 1}/${episode ?? 1}`;
+    case "screenscape":
+      // Premium: clean embed, postMessage watch history + progress API, language selection
+      if (type === "movie") return `${api.baseUrl}/embed?tmdb=${id}&type=movie&lan=eng`;
+      return `${api.baseUrl}/embed?tmdb=${id}&type=tv&s=${season ?? 1}&e=${episode ?? 1}&lan=eng`;
 
     default:
       return "";

@@ -401,19 +401,29 @@ function buildSeasonList(nodes: FranchiseNode[], currentId: number): SeasonInfo[
   let ovaCount = 0;
   let specialCount = 0;
 
+  // ONA entries with 8+ episodes AND a known broadcast season are streaming TV series
+  // misclassified by AniList (e.g. Witch Hat Atelier is ONA on AniList but TV on MAL).
+  const knownBroadcastSeasons = new Set(["WINTER", "SPRING", "SUMMER", "FALL"]);
+
   return includable.map(node => {
     const isMovie = node.format === "MOVIE";
-    const isOva = node.format === "OVA" || node.format === "ONA";
     const isSpecial = node.format === "SPECIAL";
-    const isTv = !isMovie && !isOva && !isSpecial;
+    // Only treat as OVA if it's an actual OVA/ONA short collection (< 8 eps) or
+    // an ONA without a known broadcast season. Otherwise it's a streaming TV series.
+    const isActualOva = node.format === "OVA"
+      || (node.format === "ONA" && (
+        (node.episodes || 0) < 8
+        || !knownBroadcastSeasons.has(node.season || "")
+      ));
+    const isTv = !isMovie && !isActualOva && !isSpecial;
 
     let label: string;
     if (isMovie) { movieCount++; label = `Movie ${movieCount}`; }
-    else if (isOva) { ovaCount++; label = `OVA ${ovaCount}`; }
+    else if (isActualOva) { ovaCount++; label = `OVA ${ovaCount}`; }
     else if (isSpecial) { specialCount++; label = `Special ${specialCount}`; }
     else { tvCount++; label = `Season ${tvCount}`; }
 
-    const totalEp = isMovie || isOva || isSpecial
+    const totalEp = isMovie || isActualOva || isSpecial
       ? Math.max(node.episodes || 1, 1)
       : Math.max(node.episodes || 12, 1);
 

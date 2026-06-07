@@ -87,9 +87,10 @@ export default function AnimeDetailPage() {
     if (!releasedDate) return true;
     const d = new Date(releasedDate);
     if (isNaN(d.getTime())) return true;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return d <= today;
+    const now = Date.now();
+    // Allow a 24-hour buffer so episodes that aired today in JST
+    // (which is already tomorrow in JST at midnight UTC) are still playable.
+    return d.getTime() <= now + 24 * 60 * 60 * 1000;
   }
 
   // ── Fetch episodes for a specific season by its AniList ID ─────────────
@@ -787,8 +788,8 @@ export default function AnimeDetailPage() {
                                   : "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.07] hover:border-white/[0.12]"
                               )}
                             >
-                              {/* Episode Number */}
-                              {!isSpecialFormat && (
+                              {/* Episode Number — show for any season with 2+ episodes */}
+                              {currentSeasonEps.length > 1 && (
                                 <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-lg bg-white/[0.05] shrink-0 self-start mt-1">
                                   <span className="text-sm font-bold text-white/40">{ep.episodeNum}</span>
                                 </div>

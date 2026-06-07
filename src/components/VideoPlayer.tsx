@@ -17,9 +17,9 @@ interface VideoPlayerProps {
 const SOURCE_STYLES: Record<string, { bg: string; badge: string }> = {
   cinesrc: { bg: "bg-[#4B5694]", badge: "bg-[#4B5694]/20 text-[#7288AE]" },
   vidsrcfyi: { bg: "bg-cyan-600", badge: "bg-cyan-500/20 text-cyan-300" },
-  vidsrcmov: { bg: "bg-fuchsia-600", badge: "bg-fuchsia-500/20 text-fuchsia-300" },
-  vidlink: { bg: "bg-emerald-600", badge: "bg-emerald-500/20 text-emerald-300" },
-  vidsrcto: { bg: "bg-amber-600", badge: "bg-amber-500/20 text-amber-300" },
+  ezvidapi: { bg: "bg-violet-600", badge: "bg-violet-500/20 text-violet-300" },
+  apiplayer: { bg: "bg-rose-600", badge: "bg-rose-500/20 text-rose-300" },
+  screenscape: { bg: "bg-emerald-600", badge: "bg-emerald-500/20 text-emerald-300" },
 };
 
 const QUALITY_STYLES: Record<StreamingSource["quality"], string> = {
