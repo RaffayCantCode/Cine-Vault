@@ -6,8 +6,10 @@
       <stop offset="100%" stop-color="#EAE0CF"/>
     </linearGradient>
   </defs>
-  <rect width="32" height="32" rx="8" fill="#111844"/>
-  <rect x="1.5" y="1.5" width="29" height="29" rx="6.5" stroke="url(#fg)" stroke-width="1.5" opacity="0.5"/>
-  <path d="M9 11h6c2.5 0 4.5 2 4.5 4.5S17.5 20 15 20H9V11z" stroke="url(#fg)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-  <path d="M20 21l4.5-8 4.5 8" stroke="url(#fg)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="32" height="32" rx="9" fill="#0d1233"/>
+  <rect x="1" y="1" width="30" height="30" rx="8" stroke="url(#fg)" stroke-width="1" opacity="0.4"/>
+  <!-- Simplified swirls and play button -->
+  <path d="M7 16c0-5 4-9 9-9 2.5 0 4.7 1 6.4 2.6" stroke="url(#fg)" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M25 16c0 5-4 9-9 9-2.5 0-4.7-1-6.4-2.6" stroke="url(#fg)" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <polygon points="13,11 21,16 13,21" fill="url(#fg)" stroke="url(#fg)" stroke-width="1" stroke-linejoin="round" />
 </svg>

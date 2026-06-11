@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { Sidebar } from "@/components/Sidebar";
 import { MediaRow } from "@/components/MediaRow";
 import { VideoPlayer } from "@/components/VideoPlayer";
-import { Play, Star, Calendar, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Play, Star, Calendar, ExternalLink, CheckCircle2, Loader2 } from "lucide-react";
 import { cn, fetchJson } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
@@ -365,13 +365,16 @@ export default function TvDetailPage() {
                     key={s.season_number}
                     onClick={() => setSelectedSeason(s.season_number)}
                     className={cn(
-                      "px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200",
+                      "px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-1.5",
                       selectedSeason === s.season_number
                         ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
                         : "bg-white/[0.06] text-white/50 hover:bg-white/[0.10] hover:text-white border border-white/[0.06]"
                     )}
                   >
                     S{s.season_number}
+                    {selectedSeason === s.season_number && seasonLoading && (
+                      <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                    )}
                   </button>
                 ))}
               </div>

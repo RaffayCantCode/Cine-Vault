@@ -8,7 +8,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { AnimePlayer } from "@/components/AnimePlayer";
 import { fetchJson, cn } from "@/lib/utils";
 import type { SeasonInfo } from "@/lib/anime-fetch";
-import { Star, ArrowLeft, ChevronLeft, ChevronRight, Lock, Play, ExternalLink, BookOpen } from "lucide-react";
+import { Star, ArrowLeft, ChevronLeft, ChevronRight, Lock, Play, ExternalLink, BookOpen, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface AnimeDetail {
@@ -774,13 +774,16 @@ export default function AnimeDetailPage() {
                             key={season.id}
                             onClick={() => handleSeasonClick(season)}
                             className={cn(
-                              "px-3.5 py-2 rounded-lg text-xs font-bold transition-all duration-200 whitespace-nowrap",
+                              "px-3.5 py-2 rounded-lg text-xs font-bold transition-all duration-200 whitespace-nowrap flex items-center gap-1.5",
                               isActive
                                 ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
                                 : "bg-white/[0.06] text-white/50 hover:bg-white/[0.10] hover:text-white border border-white/[0.06]"
                             )}
                           >
                             {season.seasonLabel}
+                            {isActive && episodesLoading && (
+                              <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                            )}
                           </button>
                         );
                       })}

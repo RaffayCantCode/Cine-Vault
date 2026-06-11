@@ -15,10 +15,9 @@ interface VideoPlayerProps {
 }
 
 const SOURCE_STYLES: Record<string, { bg: string; badge: string }> = {
-  cinesrc: { bg: "bg-[#4B5694]", badge: "bg-[#4B5694]/20 text-[#7288AE]" },
-  vidsrcfyi: { bg: "bg-cyan-600", badge: "bg-cyan-500/20 text-cyan-300" },
-  vidsrcxyz: { bg: "bg-amber-600", badge: "bg-amber-500/20 text-amber-300" },
   vidlink: { bg: "bg-teal-600", badge: "bg-teal-500/20 text-teal-300" },
+  vidsrcfyi: { bg: "bg-cyan-600", badge: "bg-cyan-500/20 text-cyan-300" },
+  cinesrc: { bg: "bg-[#4B5694]", badge: "bg-[#4B5694]/20 text-[#7288AE]" },
   embedsu: { bg: "bg-rose-600", badge: "bg-rose-500/20 text-rose-300" },
 };
 

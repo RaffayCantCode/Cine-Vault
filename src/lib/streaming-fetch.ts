@@ -10,11 +10,11 @@ interface StreamingAPIConfig {
 const STREAMING_APIS: StreamingAPIConfig[] = [
   {
     name: "Source 1",
-    baseUrl: "https://cinesrc.st",
-    type: "cinesrc",
+    baseUrl: "https://vidlink.pro",
+    type: "vidlink",
     quality: "Best",
     supportsNativeFullscreen: true,
-    healthCheckUrl: "https://cinesrc.st",
+    healthCheckUrl: "https://vidlink.pro",
   },
   {
     name: "Source 2",
@@ -26,22 +26,14 @@ const STREAMING_APIS: StreamingAPIConfig[] = [
   },
   {
     name: "Source 3",
-    baseUrl: "https://vidsrc.xyz",
-    type: "vidsrcxyz",
+    baseUrl: "https://cinesrc.st",
+    type: "cinesrc",
     quality: "Best",
     supportsNativeFullscreen: true,
-    healthCheckUrl: "https://vidsrc.xyz",
+    healthCheckUrl: "https://cinesrc.st",
   },
   {
     name: "Source 4",
-    baseUrl: "https://vidlink.pro",
-    type: "vidlink",
-    quality: "Best",
-    supportsNativeFullscreen: true,
-    healthCheckUrl: "https://vidlink.pro",
-  },
-  {
-    name: "Source 5",
     baseUrl: "https://embed.su",
     type: "embedsu",
     quality: "Best",
@@ -52,22 +44,18 @@ const STREAMING_APIS: StreamingAPIConfig[] = [
 
 function buildEmbedUrl(api: StreamingAPIConfig, type: "movie" | "tv", id: number, season?: number, episode?: number): string {
   switch (api.type) {
-    case "cinesrc":
-      if (type === "movie") return `${api.baseUrl}/embed/movie/${id}`;
-      // optimized: autonext enables auto-play next episode
-      return `${api.baseUrl}/embed/tv/${id}?s=${season ?? 1}&e=${episode ?? 1}&autonext=true`;
+    case "vidlink":
+      if (type === "movie") return `${api.baseUrl}/movie/${id}`;
+      return `${api.baseUrl}/tv/${id}/${season ?? 1}/${episode ?? 1}`;
 
     case "vidsrcfyi":
       if (type === "movie") return `${api.baseUrl}/embed/movie/${id}`;
       return `${api.baseUrl}/embed/tv/${id}/${season ?? 1}/${episode ?? 1}`;
 
-    case "vidsrcxyz":
+    case "cinesrc":
       if (type === "movie") return `${api.baseUrl}/embed/movie/${id}`;
-      return `${api.baseUrl}/embed/tv/${id}/${season ?? 1}/${episode ?? 1}`;
-
-    case "vidlink":
-      if (type === "movie") return `${api.baseUrl}/movie/${id}`;
-      return `${api.baseUrl}/tv/${id}/${season ?? 1}/${episode ?? 1}`;
+      // optimized: autonext enables auto-play next episode
+      return `${api.baseUrl}/embed/tv/${id}?s=${season ?? 1}&e=${episode ?? 1}&autonext=true`;
 
     case "embedsu":
       if (type === "movie") return `${api.baseUrl}/embed/movie/${id}`;

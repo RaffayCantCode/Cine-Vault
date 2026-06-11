@@ -504,6 +504,7 @@ async function buildSeasonsFromTmdb(
   const tmdbSeasonMap: Record<string, number> = {};
 
   let first = true;
+  let accumulatedEpisodes = 0;
   for (const tmdbSeason of sorted) {
     const seasonNum = tmdbSeason.season_number;
     const label = seasonNum === 0 ? "Specials" : `Season ${seasonNum}`;
@@ -519,8 +520,14 @@ async function buildSeasonsFromTmdb(
       idMal: mainMalId,
       seasonYear: null,
       tmdbSeasonNumber: seasonNum,
+      tmdbId: tmdbId,
+      episodeOffset: accumulatedEpisodes,
     });
     first = false;
+
+    if (seasonNum > 0) {
+      accumulatedEpisodes += epCount;
+    }
 
     tmdbSeasonMap[seasonId] = seasonNum;
   }
@@ -632,6 +639,17 @@ export async function getAnimeDetails(
   const cached = getCachedDetail(cacheKey);
   if (cached) return cached;
 
+  // Step 0: Fetch AniZip mappings for IDs (TMDB & MAL) first
+  let aniZipMapping: any = null;
+  try {
+    const aniZipRes = await fetch(`https://api.ani.zip/mappings?anilist_id=${id}`, {
+      signal: AbortSignal.timeout(4000)
+    });
+    if (aniZipRes.ok) {
+      aniZipMapping = await aniZipRes.json();
+    }
+  } catch { /* ignore */ }
+
   // Step 1: Fetch main media metadata for the requested ID
   let media: any = null;
   try {
@@ -650,8 +668,13 @@ export async function getAnimeDetails(
   // Jikan fallback for the main metadata (use ONLY if we have valid MAL ID)
   if (!media) {
     try {
+      const resolvedMalId = aniZipMapping?.mappings?.mal_id
+        ? String(aniZipMapping.mappings.mal_id)
+        : null;
+      const targetMalId = resolvedMalId || numId;
+
       const jikanRes = await fetch(
-        `${JIKAN_BASE}/anime/${numId}`,
+        `${JIKAN_BASE}/anime/${targetMalId}`,
         { signal: AbortSignal.timeout(6000) }
       );
       if (jikanRes.ok) {
@@ -661,7 +684,7 @@ export async function getAnimeDetails(
           const totalEps = Math.max(a.episodes || 12, 1);
           let episodes: EpisodeDetail[] = [];
           if (!skipEpisodes) {
-            const realEps = await fetchEpisodesFromJikan(numId, String(numId), Math.min(totalEps, epLimit));
+            const realEps = await fetchEpisodesFromJikan(a.mal_id, String(id), Math.min(totalEps, epLimit));
             if (realEps) episodes = realEps;
           }
           const existingNums = new Set(episodes.map(e => e.episodeNum));
@@ -678,7 +701,8 @@ export async function getAnimeDetails(
           }
           episodes.sort((a, b) => a.episodeNum - b.episodeNum);
           const animeItem: AnimeItem = {
-            id: String(a.mal_id), idMal: String(a.mal_id),
+            id: String(id),
+            idMal: String(a.mal_id),
             name: a.title_english || a.title || "Unknown",
             jname: a.title_japanese || null,
             poster: a.images?.jpg?.large_image_url || a.images?.jpg?.image_url || "",
@@ -689,21 +713,55 @@ export async function getAnimeDetails(
             seasonYear: a.year || null, format: a.type || null,
           };
           const jikanSeason: SeasonInfo = {
-            id: String(a.mal_id), name: animeItem.name,
+            id: String(id), name: animeItem.name,
             seasonLabel: "Episodes", totalEpisodes: totalEps,
             isCurrent: true, idMal: a.mal_id,
           };
-          // Validate
-          const val = validateSeason(jikanSeason, animeItem.name, []);
+
+          // Try to get TMDB ID via AniZip or fallback search
+          let tmdbId: number | null = null;
+          if (aniZipMapping?.mappings?.themoviedb_id) {
+            tmdbId = parseInt(aniZipMapping.mappings.themoviedb_id, 10);
+            if (isNaN(tmdbId)) tmdbId = null;
+          }
+          if (!tmdbId) {
+            try {
+              tmdbId = await searchTmdbShow(animeItem.name, animeItem.seasonYear || undefined);
+            } catch {
+              tmdbId = null;
+            }
+          }
+
+          let tmdbSeasonMap: Record<string, number> | undefined = undefined;
+          let seasonsList: SeasonInfo[] = [jikanSeason];
+
+          if (tmdbId) {
+            try {
+              const tmdbData = await buildSeasonsFromTmdb(tmdbId, numId, a.mal_id);
+              if (tmdbData && tmdbData.seasons.length > 0) {
+                seasonsList = tmdbData.seasons;
+                const season1 = seasonsList.find(s => s.tmdbSeasonNumber === 1) || seasonsList[0];
+                if (season1) {
+                  season1.id = String(id);
+                }
+                seasonsList.forEach((s) => {
+                  s.isCurrent = s.id === String(id);
+                });
+                tmdbSeasonMap = tmdbData.tmdbSeasonMap;
+              }
+            } catch { /* ignore */ }
+          }
+
+          const val = validateSeason(seasonsList.find(s => s.id === String(id)) || seasonsList[0] || jikanSeason, animeItem.name, []);
           if (val.warnings.length > 0) {
             console.warn(`[Validation] Jikan fallback season warnings for ${id}:`, val.warnings);
           }
           const jikanResult = {
             anime: animeItem, episodes, totalEpisodes: totalEps,
-            seasons: [jikanSeason], openedSeasonId: id,
+            seasons: seasonsList, openedSeasonId: id,
             franchiseNodes: [] as FranchiseNode[],
-            tmdbId: null,
-            tmdbSeasonMap: undefined,
+            tmdbId,
+            tmdbSeasonMap,
           };
           setCachedDetail(cacheKey, jikanResult);
           return jikanResult;
@@ -741,13 +799,21 @@ export async function getAnimeDetails(
   // Step 2.5: Search TMDB for the anime to use as primary season structure
   let tmdbId: number | null = null;
   let tmdbSeasonMap: Record<string, number> = {};
-  try {
-    tmdbId = await searchTmdbShow(anime.name, anime.seasonYear || undefined);
-    if (!tmdbId && anime.jname) {
-      tmdbId = await searchTmdbShow(anime.jname, anime.seasonYear || undefined);
+
+  if (aniZipMapping?.mappings?.themoviedb_id) {
+    tmdbId = parseInt(aniZipMapping.mappings.themoviedb_id, 10);
+    if (isNaN(tmdbId)) tmdbId = null;
+  }
+
+  if (!tmdbId) {
+    try {
+      tmdbId = await searchTmdbShow(anime.name, anime.seasonYear || undefined);
+      if (!tmdbId && anime.jname) {
+        tmdbId = await searchTmdbShow(anime.jname, anime.seasonYear || undefined);
+      }
+    } catch {
+      tmdbId = null;
     }
-  } catch {
-    tmdbId = null;
   }
 
   // Step 3: Build season list from the AniList franchise graph
@@ -760,10 +826,30 @@ export async function getAnimeDetails(
   await Promise.all(
     baseSeasons.map(async (s) => {
       try {
-        let tid = await searchTmdbShow(s.name, s.seasonYear || undefined);
-        if (!tid) {
-          const baseTitle = getCleanBaseTitle(s.name);
-          tid = await searchTmdbShow(baseTitle, s.seasonYear || undefined);
+        let tid: number | null = null;
+        if (s.id === id) {
+          tid = tmdbId;
+        } else {
+          try {
+            const azRes = await fetch(`https://api.ani.zip/mappings?anilist_id=${s.id}`, {
+              signal: AbortSignal.timeout(3000)
+            });
+            if (azRes.ok) {
+              const azJson = await azRes.json();
+              if (azJson.mappings?.themoviedb_id) {
+                tid = parseInt(azJson.mappings.themoviedb_id, 10);
+                if (isNaN(tid)) tid = null;
+              }
+            }
+          } catch { /* ignore */ }
+          
+          if (!tid) {
+            tid = await searchTmdbShow(s.name, s.seasonYear || undefined);
+            if (!tid) {
+              const baseTitle = getCleanBaseTitle(s.name);
+              tid = await searchTmdbShow(baseTitle, s.seasonYear || undefined);
+            }
+          }
         }
         tmdbIds[s.id] = tid;
         if (tid) uniqueTmdbIds.add(tid);
@@ -887,7 +973,14 @@ export async function getAnimeDetails(
   const seasonCap = Math.min(maxEp, epLimit);
   let seasonEps: EpisodeDetail[] = [];
 
-  if (openedSeason.idMal) {
+  let resolvedEps: EpisodeDetail[] | null = null;
+  try {
+    resolvedEps = await fetchEpisodesFromAniZip(activeSeasonId, seasonCap);
+  } catch { /* ignore */ }
+
+  if (resolvedEps && resolvedEps.length > 0) {
+    seasonEps = resolvedEps;
+  } else if (openedSeason.idMal) {
     const realEps = await fetchEpisodesFromJikan(openedSeason.idMal, activeSeasonId, seasonCap);
     if (realEps) seasonEps = realEps;
   }
@@ -965,6 +1058,50 @@ export async function searchViaJikan(query: string): Promise<AnimeItem[]> {
     }));
   } catch {
     return [];
+  }
+}
+
+// Fetch real episode metadata (titles, thumbnails, summaries) from AniZip
+export async function fetchEpisodesFromAniZip(
+  anilistId: string,
+  seasonCap: number
+): Promise<EpisodeDetail[] | null> {
+  try {
+    const res = await fetch(`https://api.ani.zip/mappings?anilist_id=${anilistId}`, {
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!json.episodes) return null;
+
+    const eps: EpisodeDetail[] = [];
+    for (const key of Object.keys(json.episodes)) {
+      const epNum = parseInt(key, 10);
+      if (isNaN(epNum) || epNum > seasonCap) continue;
+
+      const ep = json.episodes[key];
+      const title = ep.title?.en || ep.title?.['x-jat'] || ep.title?.ja || `Episode ${epNum}`;
+      const description = ep.overview || ep.summary || null;
+      const thumbnail = ep.image || null;
+      const releasedDate = ep.airDate || ep.airdate || null;
+
+      eps.push({
+        episodeId: `${anilistId}-${epNum}`,
+        episodeNum: epNum,
+        title,
+        description,
+        thumbnail,
+        releasedDate,
+        isFiller: false,
+        isRecap: false,
+        malUrl: ep.malId ? `https://myanimelist.net/anime/${ep.malId}/episode/${epNum}` : null,
+      });
+    }
+
+    return eps.sort((a, b) => a.episodeNum - b.episodeNum);
+  } catch (error) {
+    console.error("[AnimeFetch] AniZip fetch failed:", error);
+    return null;
   }
 }
 
@@ -1209,3 +1346,56 @@ export async function fetchAnimeApi(
 
   return result;
 }
+
+// Fetch real episode metadata (titles, thumbnails, descriptions) from Kitsu as a fallback
+export async function fetchEpisodesFromKitsu(
+  animeName: string,
+  seasonCap: number
+): Promise<EpisodeDetail[] | null> {
+  try {
+    const searchRes = await fetch(
+      `https://kitsu.io/api/edge/anime?filter[text]=${encodeURIComponent(animeName)}&page[limit]=1`,
+      { signal: AbortSignal.timeout(5000), headers: { "User-Agent": "CineStream/1.0" } }
+    );
+    if (!searchRes.ok) return null;
+    const searchJson = await searchRes.json();
+    const anime = searchJson.data?.[0];
+    if (!anime) return null;
+
+    const kitsuId = anime.id;
+    const epRes = await fetch(
+      `https://kitsu.io/api/edge/anime/${kitsuId}/episodes?page[limit]=${seasonCap}`,
+      { signal: AbortSignal.timeout(5000), headers: { "User-Agent": "CineStream/1.0" } }
+    );
+    if (!epRes.ok) return null;
+    const epJson = await epRes.json();
+    const epsData = epJson.data || [];
+
+    const eps: EpisodeDetail[] = [];
+    for (const ep of epsData) {
+      const epNum = ep.attributes?.number;
+      if (!epNum || epNum > seasonCap) continue;
+
+      const title = ep.attributes?.canonicalTitle || ep.attributes?.title || `Episode ${epNum}`;
+      const description = ep.attributes?.synopsis || null;
+      const thumbnail = ep.attributes?.thumbnail?.original || null;
+
+      eps.push({
+        episodeId: `kitsu-${kitsuId}-${epNum}`,
+        episodeNum: epNum,
+        title,
+        description,
+        thumbnail,
+        releasedDate: ep.attributes?.airdate || null,
+        isFiller: false,
+        isRecap: false,
+      });
+    }
+
+    return eps.sort((a, b) => a.episodeNum - b.episodeNum);
+  } catch (error) {
+    console.error("[AnimeFetch] Kitsu fetch failed:", error);
+    return null;
+  }
+}
+

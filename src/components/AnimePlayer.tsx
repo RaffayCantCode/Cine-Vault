@@ -4,9 +4,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Server, Maximize2, RotateCcw, SkipForward } from "lucide-react";
 
-interface Source {
+interface ProviderSource {
   name: string;
-  url: string;
+  provider: "vidnest" | "animepahe" | "animeplay" | "ninjastream";
   color: string;
 }
 
@@ -21,150 +21,12 @@ interface AnimePlayerProps {
   onAutoNext?: () => void;
 }
 
-function buildSources(
-  animeId: string,
-  malId: string | null | undefined,
-  episode: number,
-  rootAnimeId?: string | null,
-  rootMalId?: string | null,
-  episodeOffset?: number
-): Source[] {
-  const isSynthetic = animeId.startsWith("tmdb-");
-
-  const currentAnilistId = isSynthetic ? null : animeId.replace(/\D/g, "");
-  const currentMalNumeric = isSynthetic ? null : (malId ? malId.replace(/\D/g, "") : null);
-
-  const mainAnilistId = rootAnimeId
-    ? (rootAnimeId.startsWith("tmdb-") ? null : rootAnimeId.replace(/\D/g, ""))
-    : currentAnilistId;
-  const mainMalNumeric = rootMalId
-    ? (rootMalId.startsWith("tmdb-") ? null : rootMalId.replace(/\D/g, ""))
-    : currentMalNumeric;
-
-  const absoluteEpisode = episodeOffset ? (episodeOffset + episode) : episode;
-
-  const candidates: { name: string; url: string; color: string }[] = [];
-
-  // --- SERVER 1: Vidnest ---
-  if (currentAnilistId) {
-    candidates.push({
-      name: "Vidnest (Season)",
-      url: `https://vidnest.fun/anime/${currentAnilistId}/${episode}/sub`,
-      color: "from-[#4B5694]/30 to-[#7288AE]/20"
-    });
-  }
-  if (mainAnilistId) {
-    candidates.push({
-      name: "Vidnest (Global)",
-      url: `https://vidnest.fun/anime/${mainAnilistId}/${absoluteEpisode}/sub`,
-      color: "from-[#4B5694]/30 to-[#7288AE]/20"
-    });
-  }
-
-  // --- SERVER 2: AnimePahe ---
-  if (currentMalNumeric) {
-    candidates.push({
-      name: "AnimePahe (Season MAL)",
-      url: `https://vidnest.fun/animepahe/${currentMalNumeric}/${episode}/sub`,
-      color: "from-[#111844]/30 to-[#4B5694]/20"
-    });
-  }
-  if (currentAnilistId) {
-    candidates.push({
-      name: "AnimePahe (Season AniList)",
-      url: `https://vidnest.fun/animepahe/${currentAnilistId}/${episode}/sub`,
-      color: "from-[#111844]/30 to-[#4B5694]/20"
-    });
-  }
-  if (mainMalNumeric) {
-    candidates.push({
-      name: "AnimePahe (Global MAL)",
-      url: `https://vidnest.fun/animepahe/${mainMalNumeric}/${absoluteEpisode}/sub`,
-      color: "from-[#111844]/30 to-[#4B5694]/20"
-    });
-  }
-  if (mainAnilistId) {
-    candidates.push({
-      name: "AnimePahe (Global AniList)",
-      url: `https://vidnest.fun/animepahe/${mainAnilistId}/${absoluteEpisode}/sub`,
-      color: "from-[#111844]/30 to-[#4B5694]/20"
-    });
-  }
-
-  // --- SERVER 3: AnimePlay AniList ---
-  if (currentAnilistId) {
-    candidates.push({
-      name: "AnimePlay (Season AniList)",
-      url: `https://animeplay.cfd/stream/ani/${currentAnilistId}/${episode}/sub`,
-      color: "from-[#e63946]/30 to-[#ff6b6b]/20"
-    });
-  }
-  if (mainAnilistId) {
-    candidates.push({
-      name: "AnimePlay (Global AniList)",
-      url: `https://animeplay.cfd/stream/ani/${mainAnilistId}/${absoluteEpisode}/sub`,
-      color: "from-[#e63946]/30 to-[#ff6b6b]/20"
-    });
-  }
-
-  // --- SERVER 4: AnimePlay MAL ---
-  if (currentMalNumeric) {
-    candidates.push({
-      name: "AnimePlay (Season MAL)",
-      url: `https://animeplay.cfd/stream/mal/${currentMalNumeric}/${episode}/sub`,
-      color: "from-[#2a9d8f]/30 to-[#2ecc71]/20"
-    });
-  }
-  if (mainMalNumeric) {
-    candidates.push({
-      name: "AnimePlay (Global MAL)",
-      url: `https://animeplay.cfd/stream/mal/${mainMalNumeric}/${absoluteEpisode}/sub`,
-      color: "from-[#2a9d8f]/30 to-[#2ecc71]/20"
-    });
-  }
-
-  // --- SERVER 5: NinjaStream ---
-  if (currentAnilistId) {
-    candidates.push({
-      name: "NinjaStream (Season)",
-      url: `https://ninjasheild.stream/map/anime/${currentAnilistId}/${episode}/sub`,
-      color: "from-[#6c5ce7]/30 to-[#a29bfe]/20"
-    });
-  }
-  if (mainAnilistId) {
-    candidates.push({
-      name: "NinjaStream (Global)",
-      url: `https://ninjasheild.stream/map/anime/${mainAnilistId}/${absoluteEpisode}/sub`,
-      color: "from-[#6c5ce7]/30 to-[#a29bfe]/20"
-    });
-  }
-
-  // Deduplicate candidates by URL, keeping the first occurrence
-  const seenUrls = new Set<string>();
-  const uniqueSources: Source[] = [];
-  for (const c of candidates) {
-    if (!seenUrls.has(c.url)) {
-      seenUrls.add(c.url);
-      
-      // Simplify the names for the UI if they are single-season
-      let displayName = c.name;
-      const isSingleSeason = currentAnilistId === mainAnilistId && absoluteEpisode === episode;
-      if (isSingleSeason) {
-        displayName = c.name
-          .replace(/\s*\(Season.*?\)/gi, "")
-          .replace(/\s*\(Global.*?\)/gi, "");
-      }
-      
-      uniqueSources.push({
-        name: displayName,
-        url: c.url,
-        color: c.color
-      });
-    }
-  }
-
-  return uniqueSources;
-}
+const PROVIDERS: ProviderSource[] = [
+  { name: "Vidnest", provider: "vidnest", color: "from-[#4B5694]/30 to-[#7288AE]/20" },
+  { name: "AnimePahe", provider: "animepahe", color: "from-[#111844]/30 to-[#4B5694]/20" },
+  { name: "AnimePlay", provider: "animeplay", color: "from-[#e63946]/30 to-[#ff6b6b]/20" },
+  { name: "NinjaStream", provider: "ninjastream", color: "from-[#6c5ce7]/30 to-[#a29bfe]/20" },
+];
 
 export function AnimePlayer({
   animeId,
@@ -176,24 +38,22 @@ export function AnimePlayer({
   episodeOffset,
   onAutoNext
 }: AnimePlayerProps) {
-  const sources = buildSources(animeId, malId, episode, rootAnimeId, rootMalId, episodeOffset);
   const [sourceIndex, setSourceIndex] = useState(0);
+  const [currentUrl, setCurrentUrl] = useState("");
+  const [isResolving, setIsResolving] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
 
-  const currentSource = sources[sourceIndex] || sources[0];
-  const currentUrl = currentSource?.url || "";
-  const nextSourceName = sources[(sourceIndex + 1) % sources.length]?.name || "";
+  const currentSource = PROVIDERS[sourceIndex] || PROVIDERS[0];
+  const nextSourceName = PROVIDERS[(sourceIndex + 1) % PROVIDERS.length]?.name || "";
 
   useEffect(() => {
-    console.log(`[AnimePlayer] Loading: animeId=${animeId}, malId=${malId}, episode=${episode}, title="${animeTitle}", rootAnimeId=${rootAnimeId}, rootMalId=${rootMalId}, episodeOffset=${episodeOffset}`);
-    setIsLoading(true);
-    setHasError(false);
+    console.log(`[AnimePlayer] Parameters updated: animeId=${animeId}, malId=${malId}, episode=${episode}, rootAnimeId=${rootAnimeId}, rootMalId=${rootMalId}, episodeOffset=${episodeOffset}`);
     setSourceIndex(0);
-  }, [animeId, malId, episode, animeTitle, rootAnimeId, rootMalId, episodeOffset]);
+  }, [animeId, malId, episode, rootAnimeId, rootMalId, episodeOffset]);
 
   useEffect(() => {
     if (playerRef.current) {
@@ -201,15 +61,82 @@ export function AnimePlayer({
     }
   }, [episode]);
 
+  // Dynamic URL resolution effect
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveUrl = async () => {
+      setIsResolving(true);
+      setIsLoading(true);
+      setHasError(false);
+
+      const params = new URLSearchParams({
+        provider: currentSource.provider,
+        currentAnilistId: animeId || "",
+        currentMalId: malId || "",
+        mainAnilistId: rootAnimeId || animeId || "",
+        mainMalId: rootMalId || malId || "",
+        episode: String(episode),
+        episodeOffset: String(episodeOffset || 0)
+      });
+
+      try {
+        const res = await fetch(`/api/anime/resolve-source?${params.toString()}`);
+        if (cancelled) return;
+        const data = await res.json();
+        if (data.success && data.url) {
+          setCurrentUrl(data.url);
+        } else {
+          throw new Error("Resolution failed");
+        }
+      } catch (e) {
+        if (cancelled) return;
+        console.error("[AnimePlayer] URL resolution error:", e);
+
+        // Client-side fallback if server-side resolve API fails
+        const absoluteEpisode = (episodeOffset || 0) + episode;
+        const currentAnilistClean = animeId?.replace(/\D/g, "") || null;
+        let fallbackUrl = "";
+
+        switch (currentSource.provider) {
+          case "vidnest":
+            fallbackUrl = currentAnilistClean
+              ? `https://vidnest.fun/anime/${currentAnilistClean}/${episode}/sub`
+              : `https://vidnest.fun/anime/${(rootAnimeId || animeId)?.replace(/\D/g, "")}/${absoluteEpisode}/sub`;
+            break;
+          case "animepahe":
+            fallbackUrl = `https://vidnest.fun/animepahe/${(malId || animeId)?.replace(/\D/g, "")}/${episode}/sub`;
+            break;
+          case "animeplay":
+            fallbackUrl = currentAnilistClean
+              ? `https://animeplay.cfd/stream/ani/${currentAnilistClean}/${episode}/sub`
+              : `https://animeplay.cfd/stream/mal/${(malId || animeId)?.replace(/\D/g, "")}/${episode}/sub`;
+            break;
+          case "ninjastream":
+            fallbackUrl = currentAnilistClean
+              ? `https://ninjasheild.stream/map/anime/${currentAnilistClean}/${episode}/sub`
+              : `https://ninjasheild.stream/map/anime/${(rootAnimeId || animeId)?.replace(/\D/g, "")}/${absoluteEpisode}/sub`;
+            break;
+        }
+        setCurrentUrl(fallbackUrl);
+      } finally {
+        if (!cancelled) {
+          setIsResolving(false);
+        }
+      }
+    };
+
+    resolveUrl();
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceIndex, animeId, malId, episode, rootAnimeId, rootMalId, episodeOffset, currentSource]);
+
   const switchSource = useCallback(() => {
-    const next = (sourceIndex + 1) % sources.length;
-    console.log(`[AnimePlayer] Switching to ${sources[next]?.name}, animeId=${animeId}, malId=${malId}, episode=${episode}`);
+    const next = (sourceIndex + 1) % PROVIDERS.length;
+    console.log(`[AnimePlayer] Switching to ${PROVIDERS[next]?.name}`);
     setSourceIndex(next);
-    setIsLoading(true);
-    setHasError(false);
-  }, [sourceIndex, sources.length, animeId, malId, episode]);
-
-
+  }, [sourceIndex]);
 
   const toggleFullscreen = async () => {
     try {
@@ -230,7 +157,7 @@ export function AnimePlayer({
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/10">
-            <span className="text-xs font-bold text-white/85">{currentSource?.name}</span>
+            <span className="text-xs font-bold text-white/85">{currentSource.name}</span>
           </div>
           {hasError && (
             <span className="text-[10px] text-red-400 bg-red-400/10 border border-red-400/20 px-2 py-0.5 rounded-lg font-bold">
@@ -271,7 +198,7 @@ export function AnimePlayer({
                 <RotateCcw className="w-5 h-5 text-red-400/60" />
               </div>
               <p className="text-white/50 text-sm font-medium mb-4">
-                {currentSource?.name || "Player"} unavailable
+                {currentSource.name} unavailable
               </p>
               <button
                 onClick={switchSource}
@@ -283,11 +210,13 @@ export function AnimePlayer({
           </div>
         ) : (
           <>
-            {isLoading && (
+            {(isResolving || isLoading) && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
                 <div className="text-center">
                   <div className="w-10 h-10 border-3 border-white/10 border-t-[#7288AE] rounded-full animate-spin mx-auto mb-3" />
-                  <p className="text-white/50 text-sm font-medium">Loading {currentSource?.name || "Source"}...</p>
+                  <p className="text-white/50 text-sm font-medium">
+                    {isResolving ? "Resolving Stream ID..." : `Loading ${currentSource.name}...`}
+                  </p>
                 </div>
               </div>
             )}
@@ -302,7 +231,7 @@ export function AnimePlayer({
                 title={`${animeTitle} - Episode ${episode}`}
                 onLoad={() => { setIsLoading(false); setHasError(false); }}
                 onError={() => {
-                  console.warn(`[AnimePlayer] ${currentSource?.name} failed to load for animeId=${animeId}, malId=${malId}`);
+                  console.warn(`[AnimePlayer] ${currentSource.name} failed to load`);
                   setHasError(true);
                   setIsLoading(false);
                 }}
@@ -323,16 +252,14 @@ export function AnimePlayer({
             If stream fails, click another server below
           </span>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {sources.map((source, index) => {
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {PROVIDERS.map((source, index) => {
             const isActive = sourceIndex === index;
             return (
               <button
                 key={source.name}
                 onClick={() => {
                   setSourceIndex(index);
-                  setIsLoading(true);
-                  setHasError(false);
                 }}
                 className={`flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all text-xs font-medium ${
                   isActive
@@ -341,11 +268,9 @@ export function AnimePlayer({
                 }`}
               >
                 <span className="truncate">{source.name}</span>
-                {isActive ? (
+                {isActive && (
                   <span className="w-1.5 h-1.5 rounded-full bg-[#7288AE] animate-pulse shrink-0 ml-1.5" />
-                ) : source.name.includes("Pahe") ? (
-                  <span className="text-[9px] font-bold text-[#7288AE] uppercase shrink-0 ml-1.5">Pahe</span>
-                ) : null}
+                )}
               </button>
             );
           })}

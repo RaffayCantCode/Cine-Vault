@@ -1,19 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <defs>
-    <linearGradient id="svGrad" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="csGrad" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#4B5694"/>
       <stop offset="50%" stop-color="#7288AE"/>
       <stop offset="100%" stop-color="#EAE0CF"/>
     </linearGradient>
     <filter id="glow">
-      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#7288AE" flood-opacity="0.35"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="3.5" flood-color="#7288AE" flood-opacity="0.45"/>
     </filter>
   </defs>
-  <rect width="64" height="64" rx="18" fill="#111844"/>
-  <rect x="2" y="2" width="60" height="60" rx="16" stroke="url(#svGrad)" stroke-width="2" opacity="0.5"/>
+  <!-- Background Badge -->
+  <rect width="64" height="64" rx="18" fill="#0d1233" />
+  <rect x="1.5" y="1.5" width="61" height="61" rx="16.5" stroke="url(#csGrad)" stroke-width="1.5" opacity="0.35"/>
+  
   <g filter="url(#glow)">
-    <path d="M16 20h12c4 0 7 3 7 7s-3 7-7 7H16V20z" stroke="url(#svGrad)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-    <path d="M38 44l8-16 8 16" stroke="url(#svGrad)" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Swirling Stream Waves -->
+    <path d="M15 32c0-9.4 7.6-17 17-17 4.7 0 9 1.9 12 5" stroke="url(#csGrad)" stroke-width="3" stroke-linecap="round" fill="none"/>
+    <path d="M49 32c0 9.4-7.6 17-17 17-4.7 0-9-1.9-12-5" stroke="url(#csGrad)" stroke-width="3" stroke-linecap="round" fill="none"/>
+    
+    <!-- Nested Play Button -->
+    <polygon points="26,23 42,32 26,41" fill="url(#csGrad)" stroke="url(#csGrad)" stroke-width="2" stroke-linejoin="round" />
   </g>
-  <circle cx="48" cy="20" r="2" fill="#EAE0CF" opacity="0.3"/>
 </svg>

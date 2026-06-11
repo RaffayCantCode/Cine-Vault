@@ -349,3 +349,13 @@ textarea,
   -webkit-tap-highlight-color: transparent; /* Remove annoying grey tap overlay on mobile Safari */
 }
 
+/* Tactile click scaling animation for all interactive elements to improve responsiveness */
+button:active,
+a:active,
+.row-item:active,
+.card-glow:active,
+[role="button"]:active {
+  transform: scale(0.97) !important;
+  transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
