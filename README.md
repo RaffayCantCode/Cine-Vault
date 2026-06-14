@@ -1,6 +1,6 @@
-# CineVault 🎬
+# CineStream 🎬
 
-CineVault is a full-featured streaming platform for movies, TV shows, anime, and manga. Built with Next.js 15 and deployed on Vercel.
+CineStream is a full-featured streaming platform for movies, TV shows, anime, and manga. Built with Next.js 15 and deployed on Vercel.
 
 <img width="1919" height="918" alt="3" src="https://github.com/user-attachments/assets/4269a5a2-46bb-45a1-b28d-186c416f23b1" />
 
@@ -132,7 +132,7 @@ stream-vault/
 
 ## ⚠️ Disclaimer
 
-CineVault is for educational purposes only. All content is provided by third-party sources. Please support the original creators by purchasing or subscribing to their services when possible.
+CineStream is for educational purposes only. All content is provided by third-party sources. Please support the original creators by purchasing or subscribing to their services when possible.
 
 ## 📄 License
 

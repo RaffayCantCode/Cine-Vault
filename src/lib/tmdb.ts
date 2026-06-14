@@ -223,9 +223,9 @@ export async function fetchTmdbEpisodeData(
         }[];
       };
       const eps = data?.episodes || [];
-      for (const ep of eps) {
+      eps.forEach((ep, index) => {
         const key = `${seasonNum}-${ep.episode_number}`;
-        episodeMap.set(key, {
+        const val = {
           seasonNum,
           episodeNum: ep.episode_number,
           title: ep.name || "",
@@ -235,8 +235,10 @@ export async function fetchTmdbEpisodeData(
           description: ep.overview || null,
           vote_average: ep.vote_average,
           runtime: ep.runtime,
-        });
-      }
+        };
+        episodeMap.set(key, val);
+        episodeMap.set(`${seasonNum}-rel-${index + 1}`, val);
+      });
     } catch {
       // Season not found, skip
     }

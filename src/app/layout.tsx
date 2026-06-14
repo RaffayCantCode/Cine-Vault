@@ -6,7 +6,7 @@ import { Providers } from "@/components/Providers";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "CineStream — Movies, TV & Anime",
+  title: "CineStream",
   description: "Movies. TV. Anime. All in one place. Stream everything you love — premium, curated, and always fresh.",
   icons: { icon: "/favicon.svg" },
 };

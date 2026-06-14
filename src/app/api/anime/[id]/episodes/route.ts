@@ -43,9 +43,8 @@ async function getEnrichedEpisodesList(
     }
   } catch { /* ignore */ }
 
-  // 2. If we lack thumbnails or summaries, overlay from Jikan
-  const lacksMetadata = seasonEps.length === 0 || seasonEps.some(e => !e.thumbnail || !e.description);
-  if (lacksMetadata && idMal) {
+  // 2. Overlay from Jikan to retrieve filler information and any missing thumbnails/descriptions
+  if (idMal) {
     try {
       const jikanEps = await fetchEpisodesFromJikan(idMal, seasonId, totalEpisodes);
       if (jikanEps && jikanEps.length > 0) {
@@ -58,6 +57,7 @@ async function getEnrichedEpisodesList(
               ...ep,
               thumbnail: ep.thumbnail || jEp?.thumbnail || null,
               description: ep.description || jEp?.description || null,
+              isFiller: jEp?.isFiller || false,
             };
           });
         }
@@ -187,7 +187,8 @@ export async function GET(
             tmdbEpisode = mapped.episodeNumber;
           }
 
-          const tmdbEp = tmdbEpisodes.get(`${tmdbSeason}-${tmdbEpisode}`);
+          const tmdbEp = tmdbEpisodes.get(`${tmdbSeason}-${tmdbEpisode}`)
+            || tmdbEpisodes.get(`${tmdbSeason}-rel-${tmdbEpisode}`);
           
           seasonEps.push({
             episodeId: matchEp?.episodeId || `${season.id}-${i}`,
@@ -313,7 +314,8 @@ export async function GET(
               tmdbEpisode = mapped.episodeNumber;
             }
 
-            const tmdbEp = tmdbEpisodes.get(`${tmdbSeason}-${tmdbEpisode}`);
+            const tmdbEp = tmdbEpisodes.get(`${tmdbSeason}-${tmdbEpisode}`)
+              || tmdbEpisodes.get(`${tmdbSeason}-rel-${tmdbEpisode}`);
 
             seasonEps.push({
               episodeId: matchEp?.episodeId || `${season.id}-${i}`,
@@ -424,7 +426,8 @@ export async function GET(
             tmdbEpisode = mapped.episodeNumber;
           }
 
-          const tmdbEp = tmdbEpisodes.get(`${tmdbSeason}-${tmdbEpisode}`);
+          const tmdbEp = tmdbEpisodes.get(`${tmdbSeason}-${tmdbEpisode}`)
+            || tmdbEpisodes.get(`${tmdbSeason}-rel-${tmdbEpisode}`);
           episodes.push({
             episodeId: matchEp?.episodeId || `${season.id}-${i}`,
             episodeNum: i,

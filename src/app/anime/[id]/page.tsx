@@ -90,13 +90,9 @@ export default function AnimeDetailPage() {
   const loadedSeasonIds = useRef<Set<string>>(new Set());
 
   function isEpisodeReleased(releasedDate: string | null | undefined): boolean {
-    if (!releasedDate) return true;
-    const d = new Date(releasedDate);
-    if (isNaN(d.getTime())) return true;
-    const now = Date.now();
-    // Allow a 24-hour buffer so episodes that aired today in JST
-    // (which is already tomorrow in JST at midnight UTC) are still playable.
-    return d.getTime() <= now + 24 * 60 * 60 * 1000;
+    // Keep episodes always unlocked so users can attempt to stream them
+    // even if the release dates/times in the database are inaccurate.
+    return true;
   }
 
   // ── Fetch episodes for a specific season by its AniList ID ─────────────
@@ -351,7 +347,7 @@ export default function AnimeDetailPage() {
 
   useEffect(() => {
     const loading = thumbnailFetchingRef.current;
-    const currentEps = currentSeasonEps;
+    const currentEps = currentSeasonEps.slice(0, visibleCount);
     const needThumb = currentEps.filter(ep => !ep.thumbnail && ep.malUrl && !loading.has(ep.episodeId));
     if (needThumb.length === 0) return;
 
@@ -388,7 +384,7 @@ export default function AnimeDetailPage() {
       if (pos < total) setTimeout(tick, 200);
     };
     tick();
-  }, [thumbEpVersionRef.current, currentSeasonId, id]);
+  }, [visibleCount, currentSeasonId, id, currentSeasonEps.length]);
 
   // ── Render ──────────────────────────────────────────────────────────────
   return (
@@ -919,11 +915,6 @@ export default function AnimeDetailPage() {
                                           <span className="font-bold text-xs">{ep.vote_average.toFixed(1)}</span>
                                         </div>
                                       )}
-                                      {ep.isFiller && (
-                                        <span className="text-[9px] text-amber-400 font-extrabold uppercase bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded">
-                                          Filler
-                                        </span>
-                                      )}
                                     </div>
                                   </div>
                                   {ep.releasedDate && (
@@ -940,6 +931,15 @@ export default function AnimeDetailPage() {
                                     <p className="text-white/30 text-xs mt-1.5">{ep.runtime} min</p>
                                   )}
                                 </div>
+
+                                {/* Right side end of the episode card: Filler golden tag */}
+                                {ep.isFiller && (
+                                  <div className="flex items-center shrink-0 self-center pl-2">
+                                    <span className="text-[10px] text-amber-400 font-extrabold uppercase bg-amber-400/10 border border-amber-400/20 px-2.5 py-1 rounded-xl shadow-lg shadow-amber-400/5">
+                                      Filler
+                                    </span>
+                                  </div>
+                                )}
                               </motion.div>
                             );
                           })}

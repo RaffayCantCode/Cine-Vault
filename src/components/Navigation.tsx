@@ -47,15 +47,11 @@ export function Navigation() {
       >
       {isScrolled && <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-[#7288AE]/20 to-transparent" />}
         <div className="flex items-center w-full max-w-screen-2xl mx-auto gap-8">
-          <Link href="/" className="shrink-0 group">
-            <span className="font-bold text-2xl md:text-3xl tracking-wider leading-none flex items-center">
-              <span className="gradient-text transition-opacity group-hover:opacity-80">
-                CINE
-              </span>
-              <span className="text-white/30 mx-1.5 font-light">|</span>
-              <span className="gradient-text transition-opacity group-hover:opacity-80">
-                VAULT
-              </span>
+          <Link href="/" className="shrink-0 group flex items-center gap-2">
+            <img src="/logo-icon.svg" alt="CineStream" className="w-8 h-8 md:w-9 md:h-9 drop-shadow-lg" />
+            <span className="font-bold text-xl md:text-2xl tracking-wider leading-none flex items-center">
+              <span className="text-white group-hover:opacity-80 transition-opacity">CINE</span>
+              <span className="bg-gradient-to-r from-[#7288AE] to-[#EAE0CF] bg-clip-text text-transparent group-hover:opacity-80 transition-opacity">STREAM</span>
             </span>
           </Link>
 
